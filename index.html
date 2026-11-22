@@ -269,6 +269,7 @@
                 <option value="ALL">Alle Kategorien</option>
               </select>
               <select id="inv-type-filter" onchange="renderInventory()" class="px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white">
+                <option value="ALL_INC_SUB">Alle Artikel</option>
                 <option value="OWN_ALL">Eigener Bestand (ohne Zumietung)</option>
                 <option value="SUBRENTAL_ONLY">Zumietartikel (für Packliste)</option>
                 <option value="ALL_INC_SUB">Alle inkl. Zumietartikel</option>
@@ -1471,7 +1472,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
         <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Info:</span>
         <input type="text" value="${esc(job.pickup_info || '')}"
                onchange="updateJobPickupInfo('${job.id}', this.value)"
-               placeholder="z. B. Abholung am Fr. 10:00 Uhr durch Markus..."
+               placeholder="z. B. Abholung am Fr. den 13.11.2026 - 10:00 Uhr durch Markus..."
                class="flex-1 px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-xl focus:ring-1 focus:ring-rose-500 outline-none" />
         ${allLines.length > 0 ? `
           <button type="button" onclick="toggleAllPackLinesExpand('${job.id}')"
