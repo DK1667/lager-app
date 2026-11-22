@@ -20,7 +20,7 @@
 <body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
 
   <!-- ===================================================================== -->
-  <!-- 1. SUPABASE SETUP / LOGIN SCREEN                                      -->
+  <!-- 1. LOGIN SCREEN                                                       -->
   <!-- ===================================================================== -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border border-slate-200">
@@ -32,17 +32,16 @@
         </div>
       </div>
 
-      <!-- Supabase Config Box (wird ausgeblendet, wenn Keys gespeichert oder im Code hinterlegt sind) -->
-      <div id="config-box" class="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+      <!-- Optionaler Config-Bereich (standardmäßig ausgeblendet, da fest hinterlegt) -->
+      <div id="config-box" class="hidden mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
         <div class="flex justify-between items-center mb-2">
           <span class="font-semibold text-amber-900">Supabase-Verbindung</span>
-          <button type="button" onclick="toggleConfig()" class="text-xs text-amber-700 underline">Ein-/Ausblenden</button>
+          <button type="button" onclick="document.getElementById('config-box').classList.add('hidden')" class="text-xs text-amber-700 underline">Schließen</button>
         </div>
         <div id="config-fields" class="space-y-2.5">
-          <p class="text-xs text-amber-800">Einmalig Project URL & anon public Key aus Supabase eintragen:</p>
           <input id="cfg-url" type="url" placeholder="https://xxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
-          <input id="cfg-key" type="text" placeholder="anon public key (eyJhbGci...)" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
-          <button type="button" onclick="saveConfig()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Verbindung speichern</button>
+          <input id="cfg-key" type="text" placeholder="sb_publishable_..." class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
+          <button type="button" onclick="saveConfig()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Überschreiben & speichern</button>
         </div>
       </div>
 
@@ -56,8 +55,14 @@
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Passwort</label>
-          <input id="login-pass" type="password" required placeholder="••••••••" autocomplete="current-password"
-                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+          <div class="relative">
+            <input id="login-pass" type="password" required placeholder="Passwort eingeben" autocomplete="current-password"
+                   class="w-full pl-3.5 pr-24 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+            <button type="button" id="toggle-pass-btn" onclick="togglePasswordVisibility()"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
+              👁️ Zeigen
+            </button>
+          </div>
         </div>
         <div id="login-error" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs"></div>
         <button type="submit" id="login-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow transition">
@@ -65,8 +70,8 @@
         </button>
       </form>
       <div class="mt-4 text-center">
-        <button type="button" onclick="document.getElementById('config-fields').classList.remove('hidden'); document.getElementById('config-box').classList.remove('hidden');" class="text-xs text-slate-400 hover:text-slate-600">
-          Supabase-Keys ändern
+        <button type="button" onclick="document.getElementById('config-box').classList.toggle('hidden')" class="text-[11px] text-slate-400 hover:text-slate-600">
+          Verbindungsdaten anzeigen
         </button>
       </div>
     </div>
@@ -76,7 +81,6 @@
   <!-- 2. HAUPTANWENDUNG                                                     -->
   <!-- ===================================================================== -->
   <div id="app-shell" class="hidden">
-    <!-- Top Header -->
     <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md no-print">
       <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center gap-3">
@@ -87,7 +91,6 @@
           </div>
         </div>
 
-        <!-- Globaler Bestandsbereich-Filter -->
         <div class="flex items-center gap-2 flex-wrap">
           <label class="text-xs text-slate-300">Bestand:</label>
           <select id="global-tenant-filter" onchange="onTenantFilterChange()" class="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-1.5 font-medium">
@@ -98,7 +101,6 @@
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
       <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-slate-800 text-sm">
         <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-indigo-400 text-white whitespace-nowrap">1. Bestand & Artikel</button>
         <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Rücknahme</button>
@@ -111,10 +113,6 @@
     </header>
 
     <main class="max-w-7xl mx-auto p-4 md:p-6">
-
-      <!-- ================================================================= -->
-      <!-- TAB 1: BESTAND & ARTIKEL                                          -->
-      <!-- ================================================================= -->
       <section id="view-inventory" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -132,13 +130,9 @@
             </button>
           </div>
         </div>
-
         <div id="inventory-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
-      <!-- ================================================================= -->
-      <!-- TAB 2: PACKLISTEN & RÜCKNAHME                                     -->
-      <!-- ================================================================= -->
       <section id="view-jobs" class="hidden space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
@@ -149,13 +143,9 @@
             + Neue Packliste / Job
           </button>
         </div>
-
         <div id="jobs-container" class="space-y-4"></div>
       </section>
 
-      <!-- ================================================================= -->
-      <!-- TAB 3: WERKSTATT & 6-MONATE-FOTO-ARCHIV                           -->
-      <!-- ================================================================= -->
       <section id="view-workshop" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap gap-1.5">
@@ -169,13 +159,9 @@
             + Defekt direkt melden (mit Handy-Foto)
           </button>
         </div>
-
         <div id="workshop-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
-      <!-- ================================================================= -->
-      <!-- TAB 4: DGUV V3 / BENNING ST 755+                                  -->
-      <!-- ================================================================= -->
       <section id="view-dguv" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -186,13 +172,9 @@
             + Benning-Prüfung / PDF erfassen
           </button>
         </div>
-
         <div id="dguv-list" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"></div>
       </section>
 
-      <!-- ================================================================= -->
-      <!-- TAB 5: INVENTUR & DIN-A4 DRUCK                                    -->
-      <!-- ================================================================= -->
       <section id="view-stocktake" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
           <div class="flex items-center gap-3 flex-wrap">
@@ -203,30 +185,22 @@
             🖨️ Inventurliste drucken / als PDF speichern
           </button>
         </div>
-
         <div id="stocktake-print-area" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 card"></div>
       </section>
-
     </main>
   </div>
 
-  <!-- ===================================================================== -->
-  <!-- MODALS (ARTIKEL, JOB/PACKLISTE, DEFEKT+FOTO, REPARATUR, DGUV, BEREICH)-->
-  <!-- ===================================================================== -->
   <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
     <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 my-8 border border-slate-200"></div>
   </div>
 
 <script>
 // ============================================================================
-// OPTIONAL: HIER FEST EINTRAGEN, DAMIT ES AUF JEDEM HANDY SOFORT STARTET
+// FEST HINTERLEGTE SUPABASE-VERBINDUNG
 // ============================================================================
-const HARDCODED_SUPABASE_URL = "https://emautxpsgzzbyzvstzee.supabase.co"; // z.B. "https://xyzcompany.supabase.co"
-const HARDCODED_SUPABASE_KEY = "sb_publishable_aSwvw4saWnLRhEztMgyS4w_-_OJsxj2"; // z.B. "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+const HARDCODED_SUPABASE_URL = "https://emautxpsgzzbyzvstzee.supabase.co";
+const HARDCODED_SUPABASE_KEY = "sb_publishable_aSwvw4saWnLRhEztMgyS4w_-_OJsxj2";
 
-// ============================================================================
-// INITIALISIERUNG & GLOBALER STATE
-// ============================================================================
 let sb = null;
 let currentUser = null;
 let state = {
@@ -244,8 +218,8 @@ let state = {
 
 function getConfig() {
   return {
-    url: HARDCODED_SUPABASE_URL || localStorage.getItem('lw_sb_url') || '',
-    key: HARDCODED_SUPABASE_KEY || localStorage.getItem('lw_sb_key') || ''
+    url: (HARDCODED_SUPABASE_URL || localStorage.getItem('lw_sb_url') || '').trim(),
+    key: (HARDCODED_SUPABASE_KEY || localStorage.getItem('lw_sb_key') || '').trim()
   };
 }
 
@@ -255,30 +229,34 @@ function initSupabaseClient() {
   document.getElementById('cfg-key').value = key;
   if (url && key) {
     sb = window.supabase.createClient(url, key);
-    document.getElementById('config-fields').classList.add('hidden');
   }
 }
 
-function toggleConfig() {
-  document.getElementById('config-fields').classList.toggle('hidden');
+function togglePasswordVisibility() {
+  const input = document.getElementById('login-pass');
+  const btn = document.getElementById('toggle-pass-btn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈 Verbergen';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️ Zeigen';
+  }
 }
 
 function saveConfig() {
   const url = document.getElementById('cfg-url').value.trim();
   const key = document.getElementById('cfg-key').value.trim();
-  if (!url || !key) return alert('Bitte Project URL und anon public Key eintragen.');
+  if (!url || !key) return alert('Bitte Project URL und Publishable / anon Key eintragen.');
   localStorage.setItem('lw_sb_url', url);
   localStorage.setItem('lw_sb_key', key);
   initSupabaseClient();
-  alert('Supabase-Verbindung gespeichert! Jetzt kannst du dich einloggen.');
+  alert('Supabase-Verbindung gespeichert!');
 }
 
-// ============================================================================
-// AUTHENTIFIZIERUNG (EINFACHER NAME + PASSWORT -> @lager.intern)
-// ============================================================================
 async function handleLogin(e) {
   e.preventDefault();
-  if (!sb) return alert('Bitte zuerst oben Supabase Project URL & Key speichern.');
+  if (!sb) return alert('Supabase-Client nicht initialisiert.');
   const errBox = document.getElementById('login-error');
   errBox.classList.add('hidden');
 
@@ -295,7 +273,8 @@ async function handleLogin(e) {
   btn.textContent = 'Einloggen';
 
   if (error) {
-    errBox.textContent = 'Login fehlgeschlagen: ' + error.message;
+    const { url } = getConfig();
+    errBox.innerHTML = `<b>Login fehlgeschlagen:</b> ${esc(error.message)}<br><span class="text-[11px] opacity-80">Geprüft wurde: <code>${esc(email)}</code> auf <code>${esc(url)}</code></span>`;
     errBox.classList.remove('hidden');
     return;
   }
@@ -318,9 +297,6 @@ async function onAuthenticated(user) {
   await loadAllData();
 }
 
-// ============================================================================
-// AUTOMATISCHE 6-MONATE-FOTO-BEREINIGUNG IM ARCHIV
-// ============================================================================
 async function runSixMonthPhotoCleanup() {
   try {
     const nowIso = new Date().toISOString();
@@ -347,9 +323,6 @@ async function runSixMonthPhotoCleanup() {
   }
 }
 
-// ============================================================================
-// DATEN LADEN & RENDERN
-// ============================================================================
 async function loadAllData() {
   const [tRes, iRes, bRes, dRes, jRes, jbRes, plRes, wRes] = await Promise.all([
     sb.from('tenants').select('*').order('name'),
@@ -413,9 +386,6 @@ function switchTab(tab) {
   });
 }
 
-// ============================================================================
-// HILFSFUNKTIONEN: BESTANDSBERECHNUNG & DGUV STATUS
-// ============================================================================
 function tenantName(id) {
   const t = state.tenants.find(x => x.id === id);
   return t ? t.name : 'Unbekannt';
@@ -439,14 +409,10 @@ function getDguvStatusBadge(itemId) {
   return `<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-800 font-bold">DGUV V3 OK (${tests.length} geprüft)</span>`;
 }
 
-// ============================================================================
-// TAB 1: BESTAND & ARTIKEL RENDERN
-// ============================================================================
 function renderInventory() {
   const search = (document.getElementById('inv-search').value || '').toLowerCase();
   const catFilter = document.getElementById('inv-cat-filter').value;
 
-  // Kategorien aktualisieren
   const cats = [...new Set(state.items.map(i => i.category).filter(Boolean))].sort();
   const catSel = document.getElementById('inv-cat-filter');
   catSel.innerHTML = `<option value="ALL">Alle Kategorien</option>` + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
@@ -521,7 +487,7 @@ function renderInventory() {
           <button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt melden</button>
           <div class="flex gap-2">
             <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-            <button onclick="deleteItem('${item.id}')" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+            <button onclick="deleteItem('${item.id}')" class="px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
           </div>
         </div>
       </div>
@@ -529,9 +495,6 @@ function renderInventory() {
   }).join('');
 }
 
-// ============================================================================
-// TAB 2: PACKLISTEN & RÜCKNAHME RENDERN
-// ============================================================================
 function renderJobs() {
   const container = document.getElementById('jobs-container');
   const filteredJobs = state.jobs.filter(j => state.selectedTenant === 'ALL' || j.tenant_id === state.selectedTenant);
@@ -576,7 +539,6 @@ function renderJobs() {
           </div>
         </div>
 
-        <!-- Dynamische Packliste & Rücknahme-Zeilen -->
         <div class="divide-y divide-slate-100">
           ${lines.map(line => `
             <div class="p-3.5 flex flex-wrap items-center justify-between gap-3 ${line.packed ? 'bg-emerald-50/40' : ''}">
@@ -606,9 +568,6 @@ function renderJobs() {
   }).join('');
 }
 
-// ============================================================================
-// TAB 3: WERKSTATT & ARCHIV RENDERN
-// ============================================================================
 function setWorkshopFilter(f) {
   state.workshopFilter = f;
   document.querySelectorAll('.ws-filter-btn').forEach(btn => {
@@ -706,9 +665,6 @@ async function shareTicket(ticketId) {
   alert('Defekt-Info inkl. Foto-Link in die Zwischenablage kopiert! Jetzt einfach in WhatsApp / Chat einfügen.');
 }
 
-// ============================================================================
-// TAB 4: DGUV V3 / BENNING ST 755+ RENDERN
-// ============================================================================
 function renderDguv() {
   const container = document.getElementById('dguv-list');
   const rows = state.dguvTests.map(test => {
@@ -769,9 +725,6 @@ function renderDguv() {
   `;
 }
 
-// ============================================================================
-// TAB 5: INVENTUR-DRUCKLISTE RENDERN
-// ============================================================================
 function renderStocktake() {
   const selTenant = document.getElementById('stocktake-tenant-select').value || 'ALL';
   const titleName = selTenant === 'ALL' ? 'Gesamtbestand (Alle Bereiche)' : tenantName(selTenant);
@@ -824,9 +777,6 @@ function renderStocktake() {
   `;
 }
 
-// ============================================================================
-// MODALS & CRUD-AKTIONEN
-// ============================================================================
 function openModal(html) {
   document.getElementById('modal-content').innerHTML = html;
   document.getElementById('modal-backdrop').classList.remove('hidden');
@@ -835,7 +785,6 @@ function closeModal() {
   document.getElementById('modal-backdrop').classList.add('hidden');
 }
 
-// --- Modal: Neuer Bestandsbereich ---
 function openNewTenantModal() {
   openModal(`
     <h3 class="text-lg font-bold mb-3">Neuen Bestandsbereich anlegen</h3>
@@ -865,7 +814,6 @@ async function saveTenant(e) {
   await loadAllData();
 }
 
-// --- Modal: Artikel anlegen / bearbeiten ---
 function openItemModal(itemId = null) {
   const item = itemId ? state.items.find(i => i.id === itemId) : null;
   const comps = item ? state.bundleComponents.filter(c => c.parent_item_id === item.id) : [];
@@ -914,13 +862,11 @@ function openItemModal(itemId = null) {
         </div>
       </div>
 
-      <!-- Bundle-Felder -->
       <div id="bundle-fields" class="${item?.item_type === 'bundle' ? '' : 'hidden'} p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
         <div class="text-xs font-bold text-purple-900">Automatische Set-Komponenten (eine pro Zeile, z. B. "1x Schrägsteller"):</div>
         <textarea id="it-bundle-text" rows="4" placeholder="1x Bildschirm&#10;1x Schrägsteller&#10;1x HDMI-Kabel&#10;1x Verstromung" class="w-full px-3 py-2 border rounded-lg text-xs">${comps.map(c => `${c.qty_per_unit}x ${c.component_name}`).join('\n')}</textarea>
       </div>
 
-      <!-- Maß-System-Felder -->
       <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
         <div class="text-xs font-bold text-blue-900">Maß- & Erweiterungsregel (z. B. Big LED UP):</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
@@ -991,7 +937,6 @@ async function saveItem(e, itemId) {
     savedId = data.id;
   }
 
-  // Bundle-Komponenten aktualisieren
   await sb.from('item_bundle_components').delete().eq('parent_item_id', savedId);
   if (item_type === 'bundle') {
     const rawLines = document.getElementById('it-bundle-text').value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -1014,7 +959,6 @@ async function deleteItem(id) {
   await loadAllData();
 }
 
-// --- Modal: Neue Packliste / Job mit dynamischer Komponenten-Berechnung ---
 let draftBookings = [];
 function openNewJobModal() {
   draftBookings = [];
@@ -1113,7 +1057,6 @@ async function saveJob(e) {
   const { data: job, error } = await sb.from('jobs').insert({ tenant_id, title, event_date, status: 'packing' }).select().single();
   if (error) return alert(error.message);
 
-  // Buchungen speichern & dynamische Packlisten-Zeilen berechnen
   const bookingRows = draftBookings.map(b => ({
     job_id: job.id,
     item_id: b.item.id,
@@ -1186,7 +1129,6 @@ async function deleteJob(jobId) {
   await loadAllData();
 }
 
-// --- Modal: Defekt melden + Handy-Foto-Upload (komprimiert) ---
 function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobId = '', packLineId = '') {
   const item = itemId ? state.items.find(i => i.id === itemId) : null;
   const defaultTenant = presetTenantId || (item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || '')));
@@ -1241,7 +1183,6 @@ function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobI
   `);
 }
 
-// Clientseitige Bild-Komprimierung (spart Speicher & lädt im Lager schnell hoch)
 function compressImage(file, maxWidth = 1280, quality = 0.78) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1318,7 +1259,6 @@ async function saveDefect(e, itemId, jobId, packLineId) {
   await loadAllData();
 }
 
-// --- Modal: Repariert -> Zurück ins Lager + 6-Monate-Foto-Timer ---
 function openRepairModal(ticketId) {
   openModal(`
     <h3 class="text-lg font-bold text-emerald-700 mb-3">✅ Reparatur abschließen</h3>
@@ -1363,7 +1303,6 @@ async function deleteTicket(ticketId) {
   await loadAllData();
 }
 
-// --- Modal: DGUV V3 / Benning ST 755+ Prüfung + PDF-Upload ---
 function openDguvModal(presetItemId = '') {
   const elecItems = state.items.filter(i => i.is_dguv);
   const pool = elecItems.length > 0 ? elecItems : state.items;
@@ -1474,9 +1413,6 @@ async function deleteDguv(id) {
   await loadAllData();
 }
 
-// ============================================================================
-// BEISPIELDATEN LADEN (ZUM SOFORTIGEN TESTEN VON BIG LED UP & CO.)
-// ============================================================================
 async function seedExampleData() {
   const bghw = state.tenants.find(t => t.name === 'BGHW') || state.tenants[0];
   const fes = state.tenants.find(t => t.name === 'FES') || bghw;
@@ -1552,7 +1488,6 @@ function escAttr(s) {
   return String(s ?? '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
-// Start
 initSupabaseClient();
 if (sb) {
   sb.auth.getSession().then(({ data }) => {
