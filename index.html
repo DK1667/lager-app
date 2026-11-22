@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Lager & Werkstatt" />
-  <title>Lager & Werkstatt</title>
+  <title>Lager- und Werkstattverwaltungs-App</title>
 
   <!-- Buntes XXL-Logo als SVG-Komponente & PWA-App-Icon -->
   <script>
@@ -41,7 +41,7 @@
       document.head.appendChild(appleLink);
 
       const manifest = {
-        name: "Lager & Werkstatt",
+        name: "Lager- und Werkstattverwaltungs-App",
         short_name: "Lager & W.",
         description: "Bestand, Packlisten, DGUV V3 & Werkstatt",
         start_url: location.href,
@@ -131,8 +131,8 @@
         <div class="flex items-center gap-3">
           <div id="login-logo-box" class="w-12 h-12 rounded-xl overflow-hidden shadow shrink-0"></div>
           <div>
-            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Lager & Werkstatt</h1>
-            <p class="text-xs text-slate-500">Bestand • Packlisten • DGUV V3 • Reparatur</p>
+            <h1 class="text-lg font-extrabold text-slate-900 tracking-tight leading-tight">Lager- und Werkstattverwaltungs-App</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Bestand • Packlisten • DGUV V3 • Reparatur</p>
           </div>
         </div>
         <button type="button" id="pwa-install-btn-login" onclick="triggerPwaInstall()"
@@ -179,7 +179,7 @@
       </form>
       <div class="mt-4 text-center flex items-center justify-center gap-4">
         <button type="button" onclick="document.getElementById('config-box').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-slate-600 py-1">
-          Verbindungsdaten
+          SQL Server
         </button>
         <button type="button" onclick="openInstallHelpModal()" class="text-xs text-rose-600 hover:underline font-semibold py-1">
           📲 Handy-App Anleitung
@@ -194,10 +194,15 @@
   <div id="app-shell" class="hidden">
     <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md border-b-2 border-rose-600 no-print">
       <div class="max-w-7xl mx-auto px-3 md:px-4 py-2.5 md:py-3 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5">
-          <div id="header-logo-box" class="w-9 h-9 rounded-lg overflow-hidden shadow shrink-0"></div>
-          <div class="text-[11px] text-slate-300">
-            User: <span id="current-user-label" class="text-amber-400 font-bold"></span>
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div id="header-logo-box" class="w-9 h-9 md:w-10 md:h-10 rounded-lg overflow-hidden shadow shrink-0"></div>
+          <div class="min-w-0">
+            <div class="text-xs sm:text-sm md:text-base font-extrabold text-white tracking-tight leading-tight truncate">
+              Lager- und Werkstattverwaltungs-App
+            </div>
+            <div class="text-[11px] text-slate-300 leading-tight mt-0.5">
+              User: <span id="current-user-label" class="text-amber-400 font-bold"></span>
+            </div>
           </div>
         </div>
 
@@ -380,6 +385,7 @@
             </button>
           </div>
         </div>
+        <p class="text-xs text-slate-500 px-1">💡 Tippe einen Eintrag an, um Ort, Beschreibung, Foto oder den Reparaturverlauf zu bearbeiten.</p>
         <div id="workshop-container"></div>
       </section>
 
@@ -623,10 +629,15 @@ async function handleLogout() {
   location.reload();
 }
 
+function getCurrentUserDisplayName() {
+  if (!currentUser || !currentUser.email) return 'Team';
+  const shortName = currentUser.email.split('@')[0];
+  return shortName.charAt(0).toUpperCase() + shortName.slice(1);
+}
+
 async function onAuthenticated(user) {
   currentUser = user;
-  const shortName = user.email.split('@')[0];
-  document.getElementById('current-user-label').textContent = shortName.charAt(0).toUpperCase() + shortName.slice(1);
+  document.getElementById('current-user-label').textContent = getCurrentUserDisplayName();
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   hydrateLogos();
@@ -1088,7 +1099,7 @@ function renderInventory() {
                       </button>
                       ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
                       <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-                      <button onclick="deleteItem('${item.id}')" title="Artikel löschen" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+                      <button onclick="deleteItem('${item.id}')" title="Artikel löschen" class="px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
                     </div>
                   </td>
                 </tr>
@@ -1251,7 +1262,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
     ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-800">2. Unterwegs (${loadedCount}/${allLines.length} geladen)</span>`
     : `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
 
-  // Auf dem Handy: [Stückzahl] [Begriff] [Gepackt] [Geladen] — Zusatzinfos erst beim Antippen!
   const renderMobilePackCard = (line, isSub) => {
     const isExpanded = state.expandedPackLineIds.includes(line.id);
     const cardBg = line.loaded ? 'bg-sky-50/70' : line.packed ? 'bg-emerald-50/70' : (isSub ? 'bg-amber-50/40' : 'bg-white');
@@ -1261,10 +1271,8 @@ function buildPacklistWorkspaceHtml(job, mode) {
     return `
       <div class="${cardBg} transition">
         <div class="px-3 py-2.5 flex items-center gap-2">
-          <!-- 1. Stückzahl -->
           <span class="px-2 py-1 rounded-lg bg-slate-900 text-white font-extrabold text-xs shrink-0">${line.qty_required}×</span>
 
-          <!-- 2. Begriff (antippbar zum Ausklappen der Zusatzinfos) -->
           <button type="button" onclick="togglePackLineExpand('${line.id}')"
                   class="min-w-0 flex-1 text-left py-0.5 flex items-center gap-1.5">
             <span class="text-xs font-bold ${hasExtraInfo ? 'text-rose-600' : 'text-slate-400'} shrink-0">${isExpanded ? '▾' : '▸'}</span>
@@ -1273,7 +1281,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
             </span>
           </button>
 
-          <!-- 3. Gepackt & Geladen direkt sichtbar -->
           <div class="flex items-center gap-1.5 shrink-0">
             <label title="Gepackt" class="px-2.5 py-1.5 rounded-lg border cursor-pointer font-bold text-xs select-none transition ${line.packed ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 border-slate-300'}">
               <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)" class="sr-only" />
@@ -1286,7 +1293,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
           </div>
         </div>
 
-        <!-- Ausklappbare Zusatzinformationen -->
         ${isExpanded ? `
           <div class="px-3 pb-3 pt-1.5 ml-2 mr-2 mb-2 rounded-xl bg-slate-50 border-l-4 border-rose-600 space-y-2 text-xs">
             <div class="flex items-center justify-between gap-2 flex-wrap">
@@ -1341,7 +1347,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
     `;
   };
 
-  // Tablet & Desktop Tabellenzeile
   const renderDesktopPackRow = (line, isSub) => {
     const rowBg = line.loaded ? 'bg-sky-50/40' : line.packed ? 'bg-emerald-50/40' : (isSub ? 'bg-amber-50/35' : '');
     const showPrint = line.show_on_print !== false;
@@ -1482,7 +1487,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
         ` : ''}
       </div>
 
-      <!-- Smartphone-Ansicht: Kompakt (Menge + Begriff + Gepackt + Geladen), Details per Tipp -->
       <div class="md:hidden divide-y divide-slate-200">
         ${allLines.length === 0 ? `
           <div class="p-6 text-center text-xs text-slate-400">
@@ -1498,7 +1502,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
         ` : ''}
       </div>
 
-      <!-- Tablet & Desktop Tabellenansicht -->
       <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
@@ -1535,7 +1538,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
         </table>
       </div>
 
-      <!-- Abholscheine & Lieferanten-Adressen -->
       <div class="p-3.5 md:p-4 bg-slate-50/90 border-t border-slate-200">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <div class="flex items-center gap-2">
@@ -3147,7 +3149,7 @@ async function deleteJob(jobId) {
 }
 
 // ============================================================================
-// TAB 3: WERKSTATT & ARCHIV
+// TAB 3: WERKSTATT & ARCHIV (INKL. DETAIL-ANSICHT, BEARBEITEN & REPARATURVERLAUF)
 // ============================================================================
 function setWorkshopViewMode(mode) {
   state.workshopViewMode = mode;
@@ -3198,6 +3200,12 @@ function renderWorkshop() {
     return;
   }
 
+  const getStatusBadge = (t) => {
+    if (t.status === 'archived') return `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✅ Repariert</span>`;
+    if (t.status === 'in_progress') return `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">🛠️ In Arbeit</span>`;
+    return `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">⚠️ Offen</span>`;
+  };
+
   if (state.workshopViewMode === 'list') {
     const mobileWsList = `
       <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
@@ -3205,21 +3213,28 @@ function renderWorkshop() {
           const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
             : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
           return `
-            <div class="p-3.5 space-y-2">
+            <div onclick="openWorkshopTicketModal('${t.id}')" class="p-3.5 space-y-2 active:bg-rose-50/40 cursor-pointer transition">
               <div class="flex items-center justify-between gap-2 flex-wrap">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
+                  ${getStatusBadge(t)}
+                </div>
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${locColor}">📍 ${esc(t.location)}</span>
               </div>
               <div class="flex items-start justify-between gap-2.5">
                 <div class="min-w-0 flex-1">
                   <div class="font-bold text-slate-900 text-sm">${t.qty}× ${esc(t.item_name)}</div>
                   <div class="text-xs text-rose-800 mt-0.5">${esc(t.description)}</div>
+                  ${t.repair_notes ? `<div class="mt-1.5 p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-700 whitespace-pre-line">📝 ${esc(t.repair_notes)}</div>` : ''}
                   <div class="text-[11px] text-slate-400 mt-1">${new Date(t.reported_at).toLocaleDateString('de-DE')} • ${esc(t.reported_by || 'Team')}</div>
                 </div>
-                ${(t.photo_url && !t.photo_deleted) ? `<a href="${t.photo_url}" target="_blank" class="shrink-0"><img src="${t.photo_url}" alt="Foto" class="w-14 h-14 object-cover rounded-xl border border-slate-200" /></a>` : ''}
+                ${(t.photo_url && !t.photo_deleted) ? `<div class="shrink-0"><img src="${t.photo_url}" alt="Foto" class="w-14 h-14 object-cover rounded-xl border border-slate-200" /></div>` : ''}
               </div>
-              <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-800 font-semibold">📤 Teilen</button>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs" onclick="event.stopPropagation()">
+                <div class="flex items-center gap-1.5">
+                  <button onclick="openWorkshopTicketModal('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold">✏️ Öffnen / Verlauf</button>
+                  <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-800 font-semibold">📤</button>
+                </div>
                 ${t.status !== 'archived'
                   ? `<button onclick="openRepairModal('${t.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold">✅ Repariert</button>`
                   : `<button onclick="deleteTicket('${t.id}')" class="px-2.5 py-2 text-slate-400">✕</button>`}
@@ -3237,7 +3252,8 @@ function renderWorkshop() {
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
               <th class="p-3 whitespace-nowrap">Bestand</th>
               <th class="p-3 whitespace-nowrap">Ort / Zuständig</th>
-              <th class="p-3">Artikel & Defektbeschreibung</th>
+              <th class="p-3 whitespace-nowrap">Status</th>
+              <th class="p-3">Artikel, Defekt & Reparaturverlauf</th>
               <th class="p-3 whitespace-nowrap">Foto</th>
               <th class="p-3 whitespace-nowrap">Gemeldet</th>
               <th class="p-3 text-right whitespace-nowrap">Aktionen</th>
@@ -3249,7 +3265,7 @@ function renderWorkshop() {
                 : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
 
               const photoCell = (t.photo_url && !t.photo_deleted)
-                ? `<a href="${t.photo_url}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:underline">
+                ? `<a href="${t.photo_url}" target="_blank" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:underline">
                      <img src="${t.photo_url}" alt="Foto" class="w-10 h-10 object-cover rounded border border-slate-200" />
                      <span>Bild</span>
                    </a>`
@@ -3258,19 +3274,25 @@ function renderWorkshop() {
                 : `<span class="text-xs text-slate-300">-</span>`;
 
               return `
-                <tr class="hover:bg-slate-50">
+                <tr onclick="openWorkshopTicketModal('${t.id}')" class="hover:bg-rose-50/35 cursor-pointer transition">
                   <td class="p-3 align-middle whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
                   </td>
                   <td class="p-3 align-middle whitespace-nowrap">
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
                   </td>
+                  <td class="p-3 align-middle whitespace-nowrap">${getStatusBadge(t)}</td>
                   <td class="p-3 align-middle">
                     <div class="font-bold text-slate-900">${t.qty}× ${esc(t.item_name)}</div>
                     <div class="text-xs text-rose-800 mt-0.5">${esc(t.description)}</div>
-                    ${t.status === 'archived' ? `
-                      <div class="text-[11px] text-emerald-700 font-semibold mt-0.5">
-                        ✅ Repariert am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}${t.repair_notes ? ` – ${esc(t.repair_notes)}` : ''}
+                    ${t.repair_notes ? `
+                      <div class="mt-1.5 p-2 rounded-lg bg-slate-50 border-l-2 border-slate-400 text-[11px] text-slate-700 whitespace-pre-line">
+                        <b>📝 Verlauf / Notizen:</b>\n${esc(t.repair_notes)}
+                      </div>
+                    ` : ''}
+                    ${t.status === 'archived' && t.repaired_at ? `
+                      <div class="text-[11px] text-emerald-700 font-semibold mt-1">
+                        ✅ Abgeschlossen am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}
                       </div>
                     ` : ''}
                   </td>
@@ -3279,8 +3301,11 @@ function renderWorkshop() {
                     <div>${new Date(t.reported_at).toLocaleDateString('de-DE')}</div>
                     <div class="text-[11px]">von ${esc(t.reported_by || 'Team')}</div>
                   </td>
-                  <td class="p-3 align-middle text-right whitespace-nowrap">
+                  <td class="p-3 align-middle text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
+                      <button onclick="openWorkshopTicketModal('${t.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold">
+                        ✏️ Bearbeiten
+                      </button>
                       <button onclick="shareTicket('${t.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
                         📤 Teilen
                       </button>
@@ -3311,7 +3336,7 @@ function renderWorkshop() {
 
     let photoHtml = '';
     if (t.photo_url && !t.photo_deleted) {
-      photoHtml = `<a href="${t.photo_url}" target="_blank" class="block mt-2">
+      photoHtml = `<a href="${t.photo_url}" target="_blank" onclick="event.stopPropagation()" class="block mt-2">
         <img src="${t.photo_url}" alt="Schadensfoto" class="w-full h-44 object-cover rounded-xl border border-slate-200" />
       </a>`;
     } else if (t.photo_deleted) {
@@ -3319,30 +3344,42 @@ function renderWorkshop() {
     }
 
     return `
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+      <div onclick="openWorkshopTicketModal('${t.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-rose-300 cursor-pointer flex flex-col justify-between transition">
         <div>
           <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
+              ${getStatusBadge(t)}
+            </div>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
           </div>
           <h3 class="font-bold text-base text-slate-900 mt-2">${t.qty}× ${esc(t.item_name)}</h3>
           <p class="text-sm text-slate-700 mt-1 bg-rose-50/70 p-2.5 rounded-xl border border-rose-100">${esc(t.description)}</p>
+          ${t.repair_notes ? `
+            <div class="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 whitespace-pre-line">
+              <b>📝 Reparaturverlauf:</b>\n${esc(t.repair_notes)}
+            </div>
+          ` : ''}
           ${photoHtml}
           <div class="text-[11px] text-slate-400 mt-2">
             Gemeldet von <b>${esc(t.reported_by || 'Team')}</b> am ${new Date(t.reported_at).toLocaleDateString('de-DE')}
           </div>
-          ${t.status === 'archived' ? `
+          ${t.status === 'archived' && t.repaired_at ? `
             <div class="mt-2 p-2 rounded bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
               ✅ Repariert am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}
-              ${t.repair_notes ? `<br/>Notiz: ${esc(t.repair_notes)}` : ''}
             </div>
           ` : ''}
         </div>
 
-        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-xs">
-          <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
-            📤 Teilen
-          </button>
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-xs" onclick="event.stopPropagation()">
+          <div class="flex items-center gap-1.5">
+            <button onclick="openWorkshopTicketModal('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">
+              ✏️ Bearbeiten
+            </button>
+            <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+              📤
+            </button>
+          </div>
           ${t.status !== 'archived' ? `
             <button onclick="openRepairModal('${t.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
               ✅ Repariert
@@ -3356,10 +3393,187 @@ function renderWorkshop() {
   }).join('') + `</div>`;
 }
 
+// ============================================================================
+// WERKSTATT-EINTRAG ÖFFNEN, BEARBEITEN & REPARATURVERLAUF PFLEGEN
+// ============================================================================
+function openWorkshopTicketModal(ticketId) {
+  const t = state.workshopTickets.find(x => x.id === ticketId);
+  if (!t) return;
+
+  const hasPhoto = !!(t.photo_url && !t.photo_deleted);
+
+  openModal(`
+    <div class="flex items-start justify-between gap-2 mb-3">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900">🔧 Werkstatt-Eintrag bearbeiten</h3>
+        <p class="text-xs text-slate-500">Gemeldet am ${new Date(t.reported_at).toLocaleDateString('de-DE')} von <b>${esc(t.reported_by || 'Team')}</b></p>
+      </div>
+      <button type="button" onclick="closeModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">✕</button>
+    </div>
+
+    <form onsubmit="saveWorkshopTicketEdit(event, '${t.id}')" class="space-y-3 text-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
+          <select id="wt-edit-tenant" class="w-full px-3 py-2.5 border rounded-xl bg-white">
+            ${state.tenants.map(tn => `<option value="${tn.id}" ${tn.id === t.tenant_id ? 'selected' : ''}>${esc(tn.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Ort / Zuständig</label>
+          <select id="wt-edit-location" class="w-full px-3 py-2.5 border rounded-xl bg-white font-bold text-slate-900">
+            <option value="Lager" ${t.location === 'Lager' ? 'selected' : ''}>📍 Lager</option>
+            <option value="Büro G7" ${t.location === 'Büro G7' ? 'selected' : ''}>📍 Büro G7 (Patrick / Markus)</option>
+            <option value="Daniel Werkstatt" ${t.location === 'Daniel Werkstatt' ? 'selected' : ''}>📍 Daniel Werkstatt</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Bearbeitungs-Status</label>
+          <select id="wt-edit-status" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold">
+            <option value="open" ${t.status === 'open' ? 'selected' : ''}>⚠️ Offen</option>
+            <option value="in_progress" ${t.status === 'in_progress' ? 'selected' : ''}>🛠️ In Arbeit / Ersatzteil bestellt</option>
+            <option value="archived" ${t.status === 'archived' ? 'selected' : ''}>✅ Repariert (Archiv)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-2.5">
+        <div class="col-span-3">
+          <label class="block text-xs font-semibold mb-1">Betroffener Artikel / Komponente</label>
+          <input id="wt-edit-name" required value="${esc(t.item_name)}" class="w-full px-3 py-2.5 border rounded-xl font-semibold" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Menge</label>
+          <input id="wt-edit-qty" type="number" min="1" value="${t.qty || 1}" required class="w-full px-3 py-2.5 border rounded-xl text-center font-bold" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Defektbeschreibung</label>
+        <textarea id="wt-edit-desc" required rows="2" class="w-full px-3 py-2.5 border rounded-xl">${esc(t.description || '')}</textarea>
+      </div>
+
+      <!-- Reparaturverlauf & Notizen -->
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <label class="block text-xs font-bold text-slate-900">📝 Reparaturverlauf & Notizen</label>
+          <button type="button" onclick="appendRepairLogTimestamp()"
+                  class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold">
+            + Eintrag mit Datum & Name
+          </button>
+        </div>
+        <textarea id="wt-edit-notes" rows="4"
+                  placeholder="Hier Arbeitsschritte, bestellte Ersatzteile oder Prüfergebnisse festhalten..."
+                  class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs leading-relaxed">${esc(t.repair_notes || '')}</textarea>
+      </div>
+
+      <!-- Foto anzeigen / austauschen / hinzufügen -->
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-slate-800">📷 Schadensfoto</span>
+          ${hasPhoto ? `<a href="${t.photo_url}" target="_blank" class="text-xs text-rose-600 font-bold underline">Vollbild öffnen</a>` : ''}
+        </div>
+        ${hasPhoto ? `<img src="${t.photo_url}" alt="Schadensfoto" class="w-full max-h-48 object-cover rounded-xl border border-slate-200" />` : ''}
+        <div>
+          <label class="block text-[11px] text-slate-600 mb-1">${hasPhoto ? 'Neues Foto hochladen (ersetzt aktuelles Foto):' : 'Foto hinzufügen (optional):'}</label>
+          <input id="wt-edit-photo" type="file" accept="image/*" capture="environment" class="text-xs w-full" />
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t">
+        <button type="button" onclick="deleteTicket('${t.id}'); closeModal();" class="px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl">
+          🗑️ Eintrag löschen
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+          <button type="submit" id="wt-edit-submit" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-sm">
+            Änderungen speichern
+          </button>
+        </div>
+      </div>
+    </form>
+  `);
+}
+
+function appendRepairLogTimestamp() {
+  const ta = document.getElementById('wt-edit-notes');
+  if (!ta) return;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('de-DE');
+  const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const userStr = getCurrentUserDisplayName();
+  const prefix = `[${dateStr} ${timeStr} – ${userStr}]: `;
+  const current = ta.value.trim();
+  ta.value = current ? `${current}\n${prefix}` : prefix;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+async function saveWorkshopTicketEdit(e, ticketId) {
+  e.preventDefault();
+  const existing = state.workshopTickets.find(x => x.id === ticketId);
+  if (!existing) return;
+
+  const btn = document.getElementById('wt-edit-submit');
+  btn.disabled = true;
+  btn.textContent = 'Speichere...';
+
+  const newStatus = document.getElementById('wt-edit-status').value;
+  const updatePayload = {
+    tenant_id: document.getElementById('wt-edit-tenant').value,
+    location: document.getElementById('wt-edit-location').value,
+    status: newStatus,
+    item_name: document.getElementById('wt-edit-name').value.trim(),
+    qty: parseInt(document.getElementById('wt-edit-qty').value, 10) || 1,
+    description: document.getElementById('wt-edit-desc').value.trim(),
+    repair_notes: document.getElementById('wt-edit-notes').value.trim()
+  };
+
+  if (newStatus === 'archived' && existing.status !== 'archived') {
+    const now = new Date();
+    const sixMonthsLater = new Date(now);
+    sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+    updatePayload.repaired_at = now.toISOString();
+    updatePayload.delete_photo_after = sixMonthsLater.toISOString();
+  } else if (newStatus !== 'archived' && existing.status === 'archived') {
+    updatePayload.repaired_at = null;
+    updatePayload.delete_photo_after = null;
+  }
+
+  const fileInput = document.getElementById('wt-edit-photo');
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    const compressed = await compressImage(fileInput.files[0]);
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error: upErr } = await sb.storage.from('defect-photos').upload(fileName, compressed, { contentType: 'image/jpeg' });
+    if (upErr) {
+      btn.disabled = false;
+      btn.textContent = 'Änderungen speichern';
+      return alert('Foto-Upload fehlgeschlagen: ' + upErr.message);
+    }
+    if (existing.photo_path && !existing.photo_deleted) {
+      await sb.storage.from('defect-photos').remove([existing.photo_path]);
+    }
+    const { data: pub } = sb.storage.from('defect-photos').getPublicUrl(fileName);
+    updatePayload.photo_path = fileName;
+    updatePayload.photo_url = pub.publicUrl;
+    updatePayload.photo_deleted = false;
+  }
+
+  const { error } = await sb.from('workshop_tickets').update(updatePayload).eq('id', ticketId);
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Änderungen speichern';
+    return alert(error.message);
+  }
+
+  closeModal();
+  await loadAllData();
+}
+
 async function shareTicket(ticketId) {
   const t = state.workshopTickets.find(x => x.id === ticketId);
   if (!t) return;
-  const text = `🔧 Werkstatt-Info (${tenantName(t.tenant_id)})\nArtikel: ${t.qty}× ${t.item_name}\nOrt/Zuständig: ${t.location}\nDefekt: ${t.description}${t.photo_url && !t.photo_deleted ? `\nFoto: ${t.photo_url}` : ''}`;
+  const text = `🔧 Werkstatt-Info (${tenantName(t.tenant_id)})\nArtikel: ${t.qty}× ${t.item_name}\nOrt/Zuständig: ${t.location}\nDefekt: ${t.description}${t.repair_notes ? `\nVerlauf: ${t.repair_notes}` : ''}${t.photo_url && !t.photo_deleted ? `\nFoto: ${t.photo_url}` : ''}`;
 
   if (navigator.share) {
     try {
@@ -3714,7 +3928,7 @@ async function saveDefect(e, itemId, jobId, packLineId) {
   }
 
   const qty = parseInt(document.getElementById('def-qty').value, 10) || 1;
-  const reporter = currentUser ? currentUser.email.split('@')[0] : 'Team';
+  const reporter = getCurrentUserDisplayName();
 
   const { error } = await sb.from('workshop_tickets').insert({
     tenant_id: document.getElementById('def-tenant').value,
@@ -3726,7 +3940,7 @@ async function saveDefect(e, itemId, jobId, packLineId) {
     description: document.getElementById('def-desc').value.trim(),
     photo_path,
     photo_url,
-    reported_by: reporter.charAt(0).toUpperCase() + reporter.slice(1)
+    reported_by: reporter
   });
 
   if (error) {
@@ -3745,13 +3959,19 @@ async function saveDefect(e, itemId, jobId, packLineId) {
 }
 
 function openRepairModal(ticketId) {
+  const t = state.workshopTickets.find(x => x.id === ticketId);
   openModal(`
     <h3 class="text-lg font-bold text-emerald-700 mb-3">✅ Reparatur abschließen</h3>
     <form onsubmit="completeRepair(event, '${ticketId}')" class="space-y-3 text-sm">
       <div>
-        <label class="block text-xs font-semibold mb-1">Reparatur-Notiz (optional)</label>
+        <label class="block text-xs font-semibold mb-1">Abschluss-Notiz zum Reparaturverlauf hinzufügen (optional)</label>
         <input id="rep-notes" placeholder="z. B. Neuen Stecker montiert & getestet" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
+      ${t && t.repair_notes ? `
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 whitespace-pre-line">
+          <b>Bisheriger Verlauf:</b>\n${esc(t.repair_notes)}
+        </div>
+      ` : ''}
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
         <button type="submit" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold">Zurück in den Bestand</button>
@@ -3762,15 +3982,22 @@ function openRepairModal(ticketId) {
 
 async function completeRepair(e, ticketId) {
   e.preventDefault();
+  const existing = state.workshopTickets.find(x => x.id === ticketId);
   const now = new Date();
   const sixMonthsLater = new Date(now);
   sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+  const newNote = document.getElementById('rep-notes').value.trim();
+  const dateStr = now.toLocaleDateString('de-DE');
+  const userStr = getCurrentUserDisplayName();
+  const closingEntry = newNote ? `[${dateStr} – ${userStr}]: ✅ Repariert: ${newNote}` : '';
+  const combinedNotes = [existing?.repair_notes || '', closingEntry].filter(Boolean).join('\n');
 
   await sb.from('workshop_tickets').update({
     status: 'archived',
     repaired_at: now.toISOString(),
     delete_photo_after: sixMonthsLater.toISOString(),
-    repair_notes: document.getElementById('rep-notes').value.trim()
+    repair_notes: combinedNotes
   }).eq('id', ticketId);
 
   closeModal();
@@ -3778,7 +4005,7 @@ async function completeRepair(e, ticketId) {
 }
 
 async function deleteTicket(ticketId) {
-  if (!confirm('Archiv-Eintrag endgültig löschen?')) return;
+  if (!confirm('Werkstatt-Eintrag endgültig löschen?')) return;
   const t = state.workshopTickets.find(x => x.id === ticketId);
   if (t && t.photo_path && !t.photo_deleted) await sb.storage.from('defect-photos').remove([t.photo_path]);
   await sb.from('workshop_tickets').delete().eq('id', ticketId);
@@ -3794,10 +4021,10 @@ function openDguvModal(presetItemId = '') {
   const nextYear = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10);
 
   openModal(`
-    <h3 class="text-lg font-bold mb-3">⚡ DGUV V3 Prüfung (Benning ST 755+) erfassen</h3>
+    <h3 class="text-lg font-bold text-slate-900 mb-3">⚡ Benning ST 755+ Prüfung / PDF</h3>
     <form onsubmit="saveDguv(event)" class="space-y-3 text-sm">
       <div>
-        <label class="block text-xs font-semibold mb-1">Elektrisches Gerät / Artikel</label>
+        <label class="block text-xs font-semibold mb-1">Gerät / Artikel</label>
         <select id="dg-item" class="w-full px-3 py-2.5 border rounded-xl bg-white">
           ${pool.map(i => `<option value="${i.id}" ${i.id === presetItemId ? 'selected' : ''}>[${esc(tenantName(i.tenant_id))}] ${esc(i.name)}</option>`).join('')}
         </select>
@@ -3805,11 +4032,11 @@ function openDguvModal(presetItemId = '') {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Benning-Prüfnummer / ID</label>
-          <input id="dg-benning-id" required placeholder="z. B. 0042" class="w-full px-3 py-2.5 border rounded-xl font-mono" />
+          <input id="dg-id" required placeholder="z. B. BGHW-0042" class="w-full px-3 py-2.5 border rounded-xl font-mono" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Prüfergebnis</label>
-          <select id="dg-status" class="w-full px-3 py-2.5 border rounded-xl bg-white">
+          <select id="dg-status" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold">
             <option value="passed">Bestanden (OK)</option>
             <option value="failed">Nicht bestanden (Mangel)</option>
           </select>
@@ -3821,17 +4048,17 @@ function openDguvModal(presetItemId = '') {
           <input id="dg-date" type="date" value="${today}" required class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1">Nächste Prüfung fällig</label>
-          <input id="dg-next" type="date" value="${nextYear}" class="w-full px-3 py-2.5 border rounded-xl" />
+          <label class="block text-xs font-semibold mb-1">Nächste Prüfung</label>
+          <input id="dg-next" type="date" value="${nextYear}" required class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
       <div class="p-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
-        <label class="block text-xs font-bold text-slate-900 mb-1.5">📄 Benning 755+ Prüfprotokoll (PDF)</label>
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">📄 Benning-PDF-Protokoll hochladen (optional)</label>
         <input id="dg-pdf" type="file" accept="application/pdf" class="text-xs w-full py-1" />
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
-        <button type="submit" id="dg-submit" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Prüfung speichern</button>
+        <button type="submit" id="dg-submit-btn" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Prüfung speichern</button>
       </div>
     </form>
   `);
@@ -3839,24 +4066,24 @@ function openDguvModal(presetItemId = '') {
 
 async function saveDguv(e) {
   e.preventDefault();
-  const btn = document.getElementById('dg-submit');
+  const btn = document.getElementById('dg-submit-btn');
   btn.disabled = true;
-  btn.textContent = 'Lade hoch...';
+  btn.textContent = 'Speichere...';
 
   let pdf_path = null;
   let pdf_url = null;
-  const pdfFile = document.getElementById('dg-pdf').files[0];
+  const pdfInput = document.getElementById('dg-pdf');
 
-  if (pdfFile) {
-    const cleanName = `${Date.now()}_${pdfFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const { error: upErr } = await sb.storage.from('dguv-pdfs').upload(cleanName, pdfFile, { contentType: 'application/pdf' });
+  if (pdfInput.files && pdfInput.files[0]) {
+    const fileName = `benning_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.pdf`;
+    const { error: upErr } = await sb.storage.from('dguv-pdfs').upload(fileName, pdfInput.files[0], { contentType: 'application/pdf' });
     if (upErr) {
       btn.disabled = false;
       btn.textContent = 'Prüfung speichern';
       return alert('PDF-Upload fehlgeschlagen: ' + upErr.message);
     }
-    pdf_path = cleanName;
-    const { data: pub } = sb.storage.from('dguv-pdfs').getPublicUrl(cleanName);
+    pdf_path = fileName;
+    const { data: pub } = sb.storage.from('dguv-pdfs').getPublicUrl(fileName);
     pdf_url = pub.publicUrl;
   }
 
@@ -3865,10 +4092,10 @@ async function saveDguv(e) {
 
   const { error } = await sb.from('dguv_tests').insert({
     item_id,
-    benning_id: document.getElementById('dg-benning-id').value.trim(),
-    status: document.getElementById('dg-status').value,
+    benning_id: document.getElementById('dg-id').value.trim(),
     test_date: document.getElementById('dg-date').value,
-    next_test_date: document.getElementById('dg-next').value || null,
+    next_test_date: document.getElementById('dg-next').value,
+    status: document.getElementById('dg-status').value,
     pdf_path,
     pdf_url
   });
@@ -3878,12 +4105,13 @@ async function saveDguv(e) {
     btn.textContent = 'Prüfung speichern';
     return alert(error.message);
   }
+
   closeModal();
   await loadAllData();
 }
 
 async function deleteDguv(id) {
-  if (!confirm('DGUV-Eintrag löschen?')) return;
+  if (!confirm('DGUV-Prüfung löschen?')) return;
   const d = state.dguvTests.find(x => x.id === id);
   if (d && d.pdf_path) await sb.storage.from('dguv-pdfs').remove([d.pdf_path]);
   await sb.from('dguv_tests').delete().eq('id', id);
@@ -3891,67 +4119,75 @@ async function deleteDguv(id) {
 }
 
 async function seedExampleData() {
-  const bghw = state.tenants.find(t => t.name === 'BGHW') || state.tenants[0];
-  if (!bghw) return;
+  let bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW');
+  if (!bghw) {
+    const { data } = await sb.from('tenants').insert({ name: 'BGHW', description: 'Kundenbestand BGHW' }).select().single();
+    bghw = data;
+  }
 
-  const tvRules = [
-    {
-      question: 'Audipack Bodenständer dazu?',
-      type: 'choice',
-      options: [
-        { label: 'Ja, mit Audipack', items: [{ qty: 1, name: 'Audipack' }] },
-        { label: 'Nein, ohne Audipack', items: [] }
-      ]
-    },
-    {
-      question: 'HDMI-Kabel Länge?',
-      type: 'choice',
-      options: [
-        { label: 'HDMI-Kabel 5m', items: [{ qty: 1, name: 'HDMI-Kabel 5m' }] },
-        { label: 'HDMI-Kabel 10m', items: [{ qty: 1, name: 'HDMI-Kabel 10m' }] },
-        { label: 'Kein HDMI-Kabel', items: [] }
-      ]
-    },
-    {
-      question: 'Stromzuleitung dazu?',
-      type: 'choice',
-      options: [
-        { label: 'Mehrfachsteckdose', items: [{ qty: 1, name: 'Mehrfachsteckdose' }] },
-        { label: 'Stromverlängerung 10m', items: [{ qty: 1, name: 'Stromkabel Schuko 10m' }] },
-        { label: 'Mehrfachsteckdose + Stromverlängerung 10m', items: [{ qty: 1, name: 'Mehrfachsteckdose' }, { qty: 1, name: 'Stromkabel Schuko 10m' }] },
-        { label: 'Keine Stromzuleitung', items: [] }
-      ]
-    }
-  ];
+  const { data: tv } = await sb.from('items').insert({
+    tenant_id: bghw.id,
+    category: 'Video & Bühne',
+    name: '84 Zoll Fernseher',
+    total_qty: 4,
+    storage_location: 'Regal A1',
+    item_type: 'bundle',
+    is_dguv: true,
+    dependency_rules: [
+      {
+        question: 'Audipack dazu?',
+        type: 'choice',
+        options: [
+          { label: 'Ja (1× Audipack)', items: [{ name: 'Audipack', qty: 1 }] },
+          { label: 'Nein', items: [] }
+        ]
+      }
+    ]
+  }).select().single();
 
-  const audipackRules = [
-    {
-      question: 'Audipack Ablage dazu?',
-      type: 'choice',
-      options: [
-        { label: 'Ohne Ablage', items: [] },
-        { label: '1× Audipack Ablage', items: [{ qty: 1, name: 'Audipack Ablage' }] },
-        { label: '2× Audipack Ablage', items: [{ qty: 2, name: 'Audipack Ablage' }] }
-      ]
-    },
-    {
-      question: 'Audipack Rollen dazu?',
-      type: 'choice',
-      options: [
-        { label: 'Mit Rollen-Satz', items: [{ qty: 1, name: 'Audipack Rollen-Satz' }] },
-        { label: 'Ohne Rollen', items: [] }
-      ]
-    }
-  ];
+  if (tv) {
+    await sb.from('item_bundle_components').insert([
+      { parent_item_id: tv.id, component_name: 'Schrägsteller', qty_per_unit: 1 },
+      { parent_item_id: tv.id, component_name: 'Transportcase', qty_per_unit: 1 }
+    ]);
+  }
 
   await sb.from('items').insert([
     {
       tenant_id: bghw.id,
-      name: 'Big LED UP',
+      category: 'Video & Bühne',
+      name: 'Audipack',
+      total_qty: 6,
+      storage_location: 'Regal A2',
+      item_type: 'single',
+      is_dguv: true,
+      dependency_rules: [
+        {
+          question: 'Welches HDMI-Kabel wird benötigt?',
+          type: 'choice',
+          options: [
+            { label: '10 m HDMI', items: [{ name: '10 m HDMI-Kabel', qty: 1 }] },
+            { label: '5 m HDMI', items: [{ name: '5 m HDMI-Kabel', qty: 1 }] }
+          ]
+        },
+        {
+          question: 'Welches Stromkabel wird benötigt?',
+          type: 'choice',
+          options: [
+            { label: 'Schukoverlängerung', items: [{ name: 'Schukoverlängerung', qty: 1 }] },
+            { label: '3er Steckdosenleiste', items: [{ name: '3er Steckdosenleiste', qty: 1 }] },
+            { label: 'Beides (Schuko + 3er Leiste)', items: [{ name: 'Schukoverlängerung', qty: 1 }, { name: '3er Steckdosenleiste', qty: 1 }] }
+          ]
+        }
+      ]
+    },
+    {
+      tenant_id: bghw.id,
       category: 'LED-Systeme',
-      storage_location: 'Halle 1 / Tor 2',
+      name: 'Big LED UP',
+      total_qty: 5,
+      storage_location: 'Halle 2 / Zone B',
       item_type: 'dimension',
-      total_qty: 4,
       is_dguv: true,
       dimension_config: {
         min_width: 2,
@@ -3965,56 +4201,62 @@ async function seedExampleData() {
     },
     {
       tenant_id: bghw.id,
-      name: 'Audipack',
-      category: 'Video & Bühne',
-      storage_location: 'Regal B1',
+      category: 'Strom & Kabel',
+      name: '10 m HDMI-Kabel',
+      total_qty: 12,
+      storage_location: 'Kabelkiste 1',
       item_type: 'single',
-      total_qty: 4,
-      dependency_rules: audipackRules
-    },
-    { tenant_id: bghw.id, name: 'Audipack Ablage', category: 'Video & Bühne', storage_location: 'Regal B1', item_type: 'single', total_qty: 4 },
-    { tenant_id: bghw.id, name: 'Audipack Rollen-Satz', category: 'Video & Bühne', storage_location: 'Regal B1', item_type: 'single', total_qty: 4 },
-    {
-      tenant_id: bghw.id,
-      name: 'Bestands-TV 55 Zoll',
-      category: 'Video & Bühne',
-      storage_location: 'Regal B2',
-      item_type: 'single',
-      total_qty: 2,
-      is_dguv: true,
-      dependency_rules: tvRules
+      is_dguv: false
     },
     {
       tenant_id: bghw.id,
-      name: 'Zumiet-TV 65 Zoll (DryHire)',
-      category: 'Video & Bühne',
-      is_subrental: true,
+      category: 'Strom & Kabel',
+      name: '5 m HDMI-Kabel',
+      total_qty: 15,
+      storage_location: 'Kabelkiste 1',
       item_type: 'single',
-      total_qty: 0,
-      dependency_rules: tvRules
+      is_dguv: false
     },
-    { tenant_id: bghw.id, name: 'HDMI-Kabel 5m', category: 'Video & Bühne', storage_location: 'Kabelkiste V1', item_type: 'single', total_qty: 15 },
-    { tenant_id: bghw.id, name: 'HDMI-Kabel 10m', category: 'Video & Bühne', storage_location: 'Kabelkiste V1', item_type: 'single', total_qty: 10 },
-    { tenant_id: bghw.id, name: 'Mehrfachsteckdose', category: 'Strom & Kabel', storage_location: 'Gitterbox 2', item_type: 'single', total_qty: 20, is_dguv: true },
-    { tenant_id: bghw.id, name: 'Stromkabel Schuko 10m', category: 'Strom & Kabel', storage_location: 'Gitterbox 3', item_type: 'single', total_qty: 25, is_dguv: true }
+    {
+      tenant_id: bghw.id,
+      category: 'Strom & Kabel',
+      name: 'Schukoverlängerung',
+      total_qty: 20,
+      storage_location: 'Kabelkiste 2',
+      item_type: 'single',
+      is_dguv: true
+    },
+    {
+      tenant_id: bghw.id,
+      category: 'Strom & Kabel',
+      name: '3er Steckdosenleiste',
+      total_qty: 20,
+      storage_location: 'Kabelkiste 2',
+      item_type: 'single',
+      is_dguv: true
+    }
   ]);
 
   await loadAllData();
 }
 
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-}
-function escAttr(s) {
-  return String(s ?? '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
-initSupabaseClient();
-if (sb) {
-  sb.auth.getSession().then(({ data }) => {
-    if (data && data.session) onAuthenticated(data.session.user);
-  });
+function escAttr(str) {
+  return String(str ?? '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
+
+(async function bootstrap() {
+  initSupabaseClient();
+  if (sb) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session?.user) {
+      await onAuthenticated(data.session.user);
+    }
+  }
+})();
 </script>
 </body>
 </html>
