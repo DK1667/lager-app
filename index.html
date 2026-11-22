@@ -193,19 +193,19 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 2: PACKLISTEN, DISPO, DRUCK, EXCEL & ZUMIETUNG                -->
+      <!-- TAB 2: PACKLISTEN-ORDNER & GEÖFFNETE PACKLISTE                    -->
       <!-- ================================================================= -->
       <section id="view-jobs" class="hidden space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
-            <h2 class="font-bold text-lg text-slate-900">Einsätze, Packlisten, Abholung & Zumietungen</h2>
-            <p class="text-xs text-slate-500">Erst Packliste anlegen – dann im nächsten Schritt Artikel, Zumietartikel, Sets & Komponenten hineinsuchen und packen.</p>
+            <h2 class="font-bold text-lg text-slate-900">Packlisten-Ordner & Zumietungen</h2>
+            <p class="text-xs text-slate-500">Klicke auf einen Packlisten-Ordner für deinen Job, um ihn zu öffnen und darin Artikel & Zumietungen zu packen.</p>
           </div>
           <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
             + Neue Packliste anlegen
           </button>
         </div>
-        <div id="jobs-container" class="space-y-6"></div>
+        <div id="jobs-container" class="space-y-4"></div>
       </section>
 
       <!-- ================================================================= -->
@@ -286,6 +286,7 @@ let state = {
   pickupLocations: [],
   workshopTickets: [],
   selectedTenant: 'ALL',
+  openJobId: null, // Standardmäßig zugeklappt -> Ordner-Ansicht!
   workshopFilter: 'OPEN_ALL',
   inventoryViewMode: localStorage.getItem('lw_inv_view') || 'list',
   sortField: 'name',
@@ -419,6 +420,10 @@ async function loadAllData() {
   state.pickupLocations = locRes.data || [];
   state.workshopTickets = wRes.data || [];
 
+  if (state.openJobId && !state.jobs.some(j => j.id === state.openJobId)) {
+    state.openJobId = null;
+  }
+
   populateTenantDropdowns();
   renderAll();
 }
@@ -440,6 +445,12 @@ function populateTenantDropdowns() {
 
 function onTenantFilterChange() {
   state.selectedTenant = document.getElementById('global-tenant-filter').value;
+  if (state.openJobId) {
+    const openJob = state.jobs.find(j => j.id === state.openJobId);
+    if (openJob && state.selectedTenant !== 'ALL' && openJob.tenant_id !== state.selectedTenant) {
+      state.openJobId = null;
+    }
+  }
   renderAll();
 }
 
@@ -495,11 +506,10 @@ function getDguvStatusBadge(itemId) {
 }
 
 // ============================================================================
-// HILFSFUNKTION FÜR HERVORGEHOBENE & UNTERSTRICHENE MABE (Z.B. 3 m, 4 m)
+// HERVORGEHOBENE & UNTERSTRICHENE MABE (Z.B. 3 m, 4 m, 2,48 m)
 // ============================================================================
 function formatPackLineHtml(lineName, isSub) {
   let html = esc(lineName);
-  // Maße wie "3 m", "4 m", "2,48 m" hervorheben und unterstreichen
   html = html.replace(
     /(\d+(?:,\d+)?\s*m)/gi,
     `<span class="dim-highlight ${isSub ? 'bg-amber-200/80 text-amber-950' : 'bg-indigo-100/80 text-indigo-950'}">$1</span>`
@@ -779,7 +789,7 @@ function renderInventory() {
 }
 
 // ============================================================================
-// TAB 2: PACKLISTEN, DISPO, DRUCK, EXCEL & ZUMIETUNGEN
+// TAB 2: PACKLISTEN-ORDNER (ZUGEKLAPPT IN ÜBERSICHT, ÖFFNET PER KLICK)
 // ============================================================================
 function isLineSubrental(line) {
   const srcItem = line.source_item_id ? state.items.find(x => x.id === line.source_item_id) : null;
@@ -789,18 +799,32 @@ function isLineSubrental(line) {
   return false;
 }
 
+function openJobFolder(jobId) {
+  state.openJobId = jobId;
+  renderJobs();
+}
+
+function closeJobFolder() {
+  state.openJobId = null;
+  renderJobs();
+}
+
 function renderJobs() {
   const container = document.getElementById('jobs-container');
   const filteredJobs = state.jobs.filter(j => state.selectedTenant === 'ALL' || j.tenant_id === state.selectedTenant);
 
   if (filteredJobs.length === 0) {
     container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
-      Noch keine Packlisten vorhanden. Klicke oben auf <b>„+ Neue Packliste anlegen“</b> (z. B. für BGHW) und packe danach im zweiten Schritt deine Artikel & Zumietungen hinein.
+      Noch keine Packlisten-Ordner vorhanden. Klicke oben auf <b>„+ Neue Packliste anlegen“</b>.
     </div>`;
     return;
   }
 
-  container.innerHTML = filteredJobs.map(job => {
+  const activeJob = state.openJobId ? filteredJobs.find(j => j.id === state.openJobId) : null;
+
+  // Wenn eine Packliste geöffnet ist, zeige nur diesen offenen Packlisten-Arbeitsbereich + Zurück-Button
+  if (activeJob) {
+    const job = activeJob;
     const allLines = state.packlistLines.filter(l => l.job_id === job.id);
     const ownLines = allLines.filter(l => !isLineSubrental(l));
     const subLines = allLines.filter(l => isLineSubrental(l));
@@ -812,7 +836,7 @@ function renderJobs() {
     const statusBadge = job.status === 'packing'
       ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Packen (${packedCount}/${allLines.length} gepackt • ${loadedCount}/${allLines.length} geladen)</span>`
       : job.status === 'out'
-      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden (${loadedCount}/${allLines.length} geladen)</span>`
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs (${loadedCount}/${allLines.length} geladen)</span>`
       : `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
 
     const renderPackRow = (line, isSub) => {
@@ -876,21 +900,22 @@ function renderJobs() {
       `;
     };
 
-    return `
+    container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-start justify-between gap-3">
-          <div class="space-y-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
-              <h3 class="font-bold text-lg text-slate-900">${esc(job.title)}</h3>
-              ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
-              ${statusBadge}
-            </div>
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <button onclick="closeJobFolder()" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-800">
+              ← Alle Packlisten
+            </button>
+            <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
+            <h3 class="font-bold text-lg text-slate-900">📁 ${esc(job.title)}</h3>
+            ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
+            ${statusBadge}
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
             <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm">
-              + Artikel / Zumietung in Packliste packen
+              + Artikel / Zumietung suchen & packen
             </button>
             <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">
               🖨️ Packliste drucken
@@ -930,7 +955,7 @@ function renderJobs() {
               ${allLines.length === 0 ? `
                 <tr>
                   <td colspan="8" class="p-6 text-center text-xs text-slate-400">
-                    Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung in Packliste packen“</b>, um Artikel, Zumietartikel, Sets & Komponenten hineinzusuchen und hinzuzufügen.
+                    Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung suchen & packen“</b>, um Artikel, Zumietartikel, Sets & Komponenten hineinzusuchen und hinzuzufügen.
                   </td>
                 </tr>
               ` : ''}
@@ -959,7 +984,7 @@ function renderJobs() {
             </div>
             <div class="flex items-center gap-2">
               <button onclick="openSubrentalModal('${job.id}')" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
-                + Zumietung mit Abholadresse eintragen
+                + Abholadresse / Zumietung eintragen
               </button>
               ${subrentals.length > 0 ? `
                 <button onclick="printSubrentals('${job.id}')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm">
@@ -970,7 +995,7 @@ function renderJobs() {
           </div>
 
           ${subrentals.length === 0 ? `
-            <p class="text-xs text-slate-400 italic">Noch keine Abholadressen hinterlegt. Wenn du hier eine Zumietung einträgst, wird sie automatisch auch oben auf die Packliste gesetzt.</p>
+            <p class="text-xs text-slate-400 italic">Noch keine separaten Abholadressen hinterlegt.</p>
           ` : `
             <div class="overflow-x-auto bg-white rounded-lg border border-slate-200">
               <table class="w-full text-left border-collapse text-xs">
@@ -1011,7 +1036,54 @@ function renderJobs() {
         </div>
       </div>
     `;
-  }).join('');
+    return;
+  }
+
+  // Ordner-Übersicht (alle Packlisten zugeklappt als Ordner-Karten)
+  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filteredJobs.map(job => {
+    const allLines = state.packlistLines.filter(l => l.job_id === job.id);
+    const packedCount = allLines.filter(l => l.packed).length;
+    const loadedCount = allLines.filter(l => l.loaded).length;
+    const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
+
+    const statusBadge = job.status === 'packing'
+      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
+      : job.status === 'out'
+      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+      : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
+
+    return `
+      <div onclick="openJobFolder('${job.id}')"
+           class="bg-white hover:bg-indigo-50/30 rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-300 cursor-pointer transition flex flex-col justify-between group">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+              ${statusBadge}
+            </div>
+            <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1">✕</button>
+          </div>
+
+          <div class="flex items-start gap-2.5">
+            <span class="text-2xl leading-none mt-0.5">📁</span>
+            <div>
+              <h3 class="font-bold text-base text-slate-900 group-hover:text-indigo-700 transition">${esc(job.title)}</h3>
+              ${job.event_date ? `<div class="text-xs text-slate-500 mt-0.5">📅 ${job.event_date}</div>` : ''}
+              ${job.pickup_info ? `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2 py-1 mt-1.5">🚚 ${esc(job.pickup_info)}</div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div class="text-slate-600 font-semibold">
+            ${allLines.length} Positionen • ${packedCount} gepackt • ${loadedCount} geladen
+            ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumietung</span>` : ''}
+          </div>
+          <span class="font-bold text-indigo-600 group-hover:translate-x-0.5 transition">Öffnen →</span>
+        </div>
+      </div>
+    `;
+  }).join('') + `</div>`;
 }
 
 async function updateJobPickupInfo(jobId, val) {
@@ -1034,13 +1106,13 @@ async function deletePackLine(lineId) {
 }
 
 // ============================================================================
-// PACKLISTE ZUERST ANLEGEN (NUR KOPFDATEN, KEIN AUTOMATISCHES FOLGE-MODAL)
+// PACKLISTE ANLEGEN (NUR JOB ANLEGEN, DANN IN ÜBERSICHT ZURÜCK)
 // ============================================================================
 function openNewJobModal() {
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
   openModal(`
     <h3 class="text-lg font-bold mb-3">Neue Packliste anlegen</h3>
-    <p class="text-xs text-slate-500 mb-3">Legt zuerst den Packlisten-Job an. Danach kannst du in der Packliste über <b>„+ Artikel / Zumietung in Packliste packen“</b> Artikel & Zumietungen einfügen.</p>
+    <p class="text-xs text-slate-500 mb-3">Legt den Packlisten-Ordner für deinen Job an. Danach klickst du in der Übersicht einfach auf den Ordner und packst deine Artikel & Zumietungen hinein.</p>
     <form onsubmit="saveJob(event)" class="space-y-3 text-sm">
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -1089,19 +1161,22 @@ async function saveJob(e) {
   });
   if (error) return alert(error.message);
 
+  state.openJobId = null;
   closeModal();
   await loadAllData();
 }
 
 // ============================================================================
-// ARTIKEL, ZUMIETARTIKEL, SETS & KOMPONENTEN SUCHEN & PACKEN
+// SUCHE & AUSWAHL FÜR ARTIKEL, ZUMIETARTIKEL, SETS & KOMPONENTEN
 // ============================================================================
+let currentPackSearchEntries = [];
+let currentPackSearchKindFilter = 'ALL';
+
 function buildPackSearchCatalog(job) {
-  // Basis: Artikel des Bestandsbereichs (falls keine vorhanden, alle Artikel)
   let baseItems = state.items.filter(i => i.tenant_id === job.tenant_id);
   if (baseItems.length === 0) baseItems = [...state.items];
 
-  // Alle Zumietartikel aus allen Bereichen ebenfalls einbeziehen, damit sie immer findbar & wählbar sind
+  // Alle Zumietartikel aus allen Bereichen ebenfalls einbeziehen
   const subrentalItems = state.items.filter(i => i.is_subrental);
   const mergedMap = new Map();
   [...baseItems, ...subrentalItems].forEach(it => mergedMap.set(it.id, it));
@@ -1109,7 +1184,6 @@ function buildPackSearchCatalog(job) {
 
   const entries = [];
 
-  // 1. Normale Artikel, Zumietartikel, Sets & Maß-Systeme
   items.forEach(item => {
     const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
     const rulesText = (Array.isArray(item.dependency_rules) ? item.dependency_rules : [])
@@ -1119,6 +1193,7 @@ function buildPackSearchCatalog(job) {
       : '';
     const compText = comps.map(c => c.component_name).join(' ');
 
+    const kind = item.is_subrental ? 'subrental' : item.item_type;
     const badge = item.is_subrental
       ? 'Zumietartikel'
       : item.item_type === 'bundle'
@@ -1130,16 +1205,15 @@ function buildPackSearchCatalog(job) {
     entries.push({
       id: `item:${item.id}`,
       item,
-      kind: item.is_subrental ? 'subrental' : item.item_type,
+      kind,
       badge,
       title: item.name,
-      sub: `${badge} • ${item.category}${item.storage_location ? ' • ' + item.storage_location : ''}`,
+      sub: `${badge} • ${item.category}${item.is_subrental ? ' • Zumietung' : (item.storage_location ? ' • ' + item.storage_location : '')}`,
       searchText: `${item.name} ${item.category} ${item.storage_location || ''} ${badge} ${compText} ${dimText} ${rulesText}`.toLowerCase(),
       componentName: null,
       componentQty: 1
     });
 
-    // 2. Einzelne Komponenten eines Sets ebenfalls durchsuchbar machen
     comps.forEach(c => {
       const matchingCatItem = items.find(x => x.name.toLowerCase() === c.component_name.toLowerCase());
       entries.push({
@@ -1158,7 +1232,6 @@ function buildPackSearchCatalog(job) {
     });
   });
 
-  // 3. Auch einzelne Set-Komponenten aus anderen Bereichen hinzufügen, falls noch nicht gelistet
   state.bundleComponents.forEach(c => {
     const exists = entries.some(e => e.title.toLowerCase() === c.component_name.toLowerCase());
     if (!exists) {
@@ -1181,34 +1254,41 @@ function buildPackSearchCatalog(job) {
   return entries.sort((a, b) => a.title.localeCompare(b.title, 'de'));
 }
 
-let currentPackSearchEntries = [];
-
 function openAddPackLineModal(jobId) {
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
   currentPackSearchEntries = buildPackSearchCatalog(job);
+  currentPackSearchKindFilter = 'ALL';
 
   openModal(`
     <h3 class="text-lg font-bold mb-1">➕ Artikel, Zumietung, Set oder Komponente packen</h3>
-    <p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> • Suchfeld durchsucht immer Artikel, Zumietartikel, Sets & Komponenten.</p>
+    <p class="text-xs text-slate-500 mb-3">Ordner: <b>${esc(job.title)}</b> • Durchsucht immer normale Artikel, Zumietartikel, Sets & Komponenten.</p>
     <form onsubmit="saveAddedPackLine(event, '${jobId}')" class="space-y-3 text-sm">
 
-      <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
         <div class="grid grid-cols-12 gap-2 items-end">
           <div class="col-span-9">
-            <label class="block text-xs font-bold text-slate-700 mb-1">🔍 Suchen (Artikel, Zumietung, Set, Komponente)</label>
+            <label class="block text-xs font-bold text-slate-800 mb-1">🔍 Suchfeld (Artikel, Zumietung, Set, Komponente)</label>
             <input id="add-pl-search" type="text" oninput="filterPackSearchPicker()"
-                   placeholder="Tippen zum Suchen, z. B. Big, TV, Audipack, Zumiet, Reflektor..."
+                   placeholder="Suchbegriff eingeben, z. B. Big, TV, Audipack, Zumiet, Reflektor..."
                    class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
           <div class="col-span-3">
-            <label class="block text-xs font-bold text-slate-700 mb-1">Menge</label>
+            <label class="block text-xs font-bold text-slate-800 mb-1">Menge</label>
             <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center font-bold bg-white" />
           </div>
         </div>
 
+        <div class="flex items-center gap-1.5 flex-wrap text-[11px]">
+          <button type="button" id="pk-filter-ALL" onclick="setPackSearchKindFilter('ALL')" class="pk-fbtn px-2.5 py-1 rounded-md font-bold bg-indigo-600 text-white">Alle</button>
+          <button type="button" id="pk-filter-OWN" onclick="setPackSearchKindFilter('OWN')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Normale Artikel</button>
+          <button type="button" id="pk-filter-SUB" onclick="setPackSearchKindFilter('SUB')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Zumietartikel</button>
+          <button type="button" id="pk-filter-SETCOMP" onclick="setPackSearchKindFilter('SETCOMP')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Sets & Komponenten</button>
+          <span id="add-pl-hit-count" class="ml-auto text-slate-500 font-semibold"></span>
+        </div>
+
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Treffer auswählen</label>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Gefundener Artikel / Zumietartikel / Komponente:</label>
           <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold"></select>
           <div id="add-pl-hit-meta" class="text-[11px] text-indigo-700 font-medium mt-1"></div>
         </div>
@@ -1249,12 +1329,12 @@ function openAddPackLineModal(jobId) {
         </label>
       </div>
 
-      <!-- Dynamische Dispo-Abfragen (z. B. Audipack, TV, Strom, HDMI + 2. Stufe) -->
+      <!-- Dynamische Dispo-Abfragen (z. B. Audipack, TV, Strom, HDMI) -->
       <div id="add-pl-dynamic-box" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-xs"></div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Bezeichnung auf der Packliste</label>
-        <input id="add-pl-name" required placeholder="Wird automatisch ausgefüllt oder frei eingeben..." class="w-full px-3 py-2 border rounded-lg" />
+        <input id="add-pl-name" required placeholder="Wird automatisch aus Auswahl übernommen..." class="w-full px-3 py-2 border rounded-lg" />
       </div>
 
       <label class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
@@ -1291,16 +1371,33 @@ function openAddPackLineModal(jobId) {
   `);
 
   filterPackSearchPicker();
+  setTimeout(() => document.getElementById('add-pl-search')?.focus(), 50);
+}
+
+function setPackSearchKindFilter(kind) {
+  currentPackSearchKindFilter = kind;
+  document.querySelectorAll('.pk-fbtn').forEach(btn => {
+    const active = btn.id === `pk-filter-${kind}`;
+    btn.className = `pk-fbtn px-2.5 py-1 rounded-md text-[11px] ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-white border border-slate-300 text-slate-700'}`;
+  });
+  filterPackSearchPicker();
 }
 
 function filterPackSearchPicker() {
   const q = (document.getElementById('add-pl-search')?.value || '').trim().toLowerCase();
   const sel = document.getElementById('add-pl-picker');
+  const countEl = document.getElementById('add-pl-hit-count');
   if (!sel) return;
 
-  const matches = q
-    ? currentPackSearchEntries.filter(e => e.searchText.includes(q))
-    : currentPackSearchEntries;
+  const matches = currentPackSearchEntries.filter(e => {
+    if (currentPackSearchKindFilter === 'OWN' && (e.kind === 'subrental' || e.kind === 'component')) return false;
+    if (currentPackSearchKindFilter === 'SUB' && e.kind !== 'subrental') return false;
+    if (currentPackSearchKindFilter === 'SETCOMP' && e.kind !== 'bundle' && e.kind !== 'component') return false;
+    if (q && !e.searchText.includes(q)) return false;
+    return true;
+  });
+
+  if (countEl) countEl.textContent = `${matches.length} Treffer`;
 
   sel.innerHTML = `<option value="">-- Freitext / Manuelle Position --</option>` +
     matches.map(e => `<option value="${escAttr(e.id)}">[${esc(e.badge)}] ${esc(e.title)}</option>`).join('');
@@ -1448,7 +1545,7 @@ async function saveAddedPackLine(e, jobId) {
     state.items.find(i => i.name.toLowerCase() === name.toLowerCase());
 
   if (item && item.item_type === 'dimension' && item.dimension_config) {
-    // Big LED UP: KEINE übergeordnete Hauptzeile mehr, sondern nur Grundkoffer, Zusatzkiste, Reflektor & Grafik!
+    // Big LED UP: KEINE übergeordnete Hauptzeile mehr, nur Grundkoffer, Zusatzkiste, Reflektor & Grafik
     const cfg = item.dimension_config;
     const w = parseFloat(document.getElementById('add-pl-width').value) || cfg.min_width || 2;
     const h = parseFloat(document.getElementById('add-pl-height').value) || 2.48;
@@ -1553,7 +1650,6 @@ async function saveAddedPackLine(e, jobId) {
     });
   }
 
-  // Ausgewählte Dispo-Abfragen (Stufe 1 + Stufe 2) als eigenständige Zeilen ergänzen
   const extraItems = [];
   if (item && Array.isArray(item.dependency_rules)) {
     item.dependency_rules.forEach((rule, rIdx) => {
@@ -1601,18 +1697,19 @@ async function saveAddedPackLine(e, jobId) {
     }
   }
 
+  state.openJobId = jobId;
   closeModal();
   await loadAllData();
 }
 
 // ============================================================================
-// ZUMIETUNGEN & GESPEICHERTE ABHOLADRESSEN (LANDET AUCH AUF DER PACKLISTE!)
+// ZUMIETUNGEN & GESPEICHERTE ABHOLADRESSEN
 // ============================================================================
 function openSubrentalModal(jobId) {
   const subItems = state.items.filter(i => i.is_subrental);
   openModal(`
     <h3 class="text-lg font-bold mb-3">🚐 Zumietung & Abholung eintragen</h3>
-    <p class="text-xs text-slate-500 mb-3">Der Artikel erscheint automatisch <b>oben in der Packliste</b> (zum Abhaken als Gepackt & Geladen) und unten im <b>Abholschein</b>.</p>
+    <p class="text-xs text-slate-500 mb-3">Wähle einen angelegten Zumietartikel oder trage eine Abholadresse ein.</p>
     <form onsubmit="saveSubrental(event, '${jobId}')" class="space-y-3 text-sm">
 
       ${state.pickupLocations.length > 0 ? `
@@ -1631,7 +1728,7 @@ function openSubrentalModal(jobId) {
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
           <label class="block text-xs font-semibold mb-1">Zumiet-Artikel / Material</label>
-          <input id="sr-item" list="subrental-items-datalist" required placeholder="z. B. 65 Zoll Display oder Traverse 3m" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="sr-item" list="subrental-items-datalist" required placeholder="Zumietartikel wählen oder eintippen..." class="w-full px-3 py-2 border rounded-lg" />
           <datalist id="subrental-items-datalist">
             ${subItems.map(i => `<option value="${esc(i.name)}"></option>`).join('')}
           </datalist>
@@ -1754,6 +1851,7 @@ async function saveSubrental(e, jobId) {
     }
   }
 
+  state.openJobId = jobId;
   closeModal();
   await loadAllData();
 }
@@ -1772,7 +1870,7 @@ async function deleteSubrental(srId) {
 }
 
 // ============================================================================
-// DRUCKFUNKTIONEN & EXCEL-EXPORT (INKL. ZUMIETARTIKEL AUF DER PACKLISTE)
+// DRUCKFUNKTIONEN & EXCEL-EXPORT
 // ============================================================================
 function triggerCustomPrint(html) {
   const area = document.getElementById('dedicated-print-area');
