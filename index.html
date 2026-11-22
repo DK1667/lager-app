@@ -194,17 +194,29 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 2: PACKLISTEN-ORDNER (GESAMTÜBERSICHT, STANDARDMÄSSIG ZU)     -->
+      <!-- TAB 2: PACKLISTEN-ÜBERSICHT (LISTE / KACHELN, INLINE ODER FENSTER)-->
       <!-- ================================================================= -->
       <section id="view-jobs" class="hidden space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
             <h2 class="font-bold text-lg text-slate-900">Packlisten-Übersicht & Zumietungen</h2>
-            <p class="text-xs text-slate-500">Alle Packlisten sind zunächst geschlossen. Klicke auf eine Packliste, um sie als eigenes Fenster zu öffnen – und schließe sie danach wieder.</p>
+            <p class="text-xs text-slate-500">Klicke auf eine Packliste, um sie im Hauptfenster zu öffnen – oder nutze <b>„🗔 Fenster“</b> für ein separates Fenster.</p>
           </div>
-          <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
-            + Neue Packliste anlegen
-          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+              <button type="button" id="jobs-view-mode-list" onclick="setJobsViewMode('list')"
+                      class="px-3 py-2 font-bold flex items-center gap-1.5 transition">
+                ☰ Liste
+              </button>
+              <button type="button" id="jobs-view-mode-grid" onclick="setJobsViewMode('grid')"
+                      class="px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                ⊞ Kacheln
+              </button>
+            </div>
+            <button onclick="openNewJobModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
+              + Neue Packliste anlegen
+            </button>
+          </div>
         </div>
         <div id="jobs-container" class="space-y-4"></div>
       </section>
@@ -262,7 +274,7 @@
     </main>
   </div>
 
-  <!-- EIGENES FENSTER FÜR GEÖFFNETE PACKLISTE -->
+  <!-- SEPARATES FENSTER FÜR PACKLISTE (OPTIONAL PER BUTTON "FENSTER") -->
   <div id="job-window-backdrop" class="hidden fixed inset-0 bg-slate-900/65 z-40 flex items-center justify-center p-2 md:p-5 overflow-y-auto no-print">
     <div id="job-window-content" class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full border border-slate-200 max-h-[94vh] flex flex-col overflow-hidden"></div>
   </div>
@@ -293,9 +305,12 @@ let state = {
   pickupLocations: [],
   workshopTickets: [],
   selectedTenant: 'ALL',
-  openJobId: null, // Immer standardmäßig geschlossen (null)
+  openJobId: null,       // Inline im Hauptarbeitsfenster geöffnete Packliste (null = geschlossen)
+  modalJobId: null,      // Optional im separaten Fenster geöffnete Packliste
+  expandedItemIds: [],   // Aufgeklappte Detailzeilen in "1. Bestand & Artikel"
   workshopFilter: 'OPEN_ALL',
   inventoryViewMode: localStorage.getItem('lw_inv_view') || 'list',
+  jobsViewMode: localStorage.getItem('lw_jobs_view') || 'list',
   sortField: 'name',
   sortDir: 'asc'
 };
@@ -376,6 +391,7 @@ async function onAuthenticated(user) {
   document.getElementById('app-shell').classList.remove('hidden');
 
   updateViewToggleButtons();
+  updateJobsViewToggleButtons();
   await runSixMonthPhotoCleanup();
   await loadAllData();
 }
@@ -430,6 +446,10 @@ async function loadAllData() {
   if (state.openJobId && !state.jobs.some(j => j.id === state.openJobId)) {
     state.openJobId = null;
   }
+  if (state.modalJobId && !state.jobs.some(j => j.id === state.modalJobId)) {
+    state.modalJobId = null;
+    document.getElementById('job-window-backdrop').classList.add('hidden');
+  }
 
   populateTenantDropdowns();
   renderAll();
@@ -465,7 +485,7 @@ function renderAll() {
 
 function switchTab(tab) {
   if (tab !== 'jobs') {
-    state.openJobId = null;
+    state.modalJobId = null;
     document.getElementById('job-window-backdrop').classList.add('hidden');
   }
   ['inventory', 'jobs', 'workshop', 'dguv', 'stocktake'].forEach(t => {
@@ -533,7 +553,7 @@ function formatPackLinePrintHtml(lineName) {
 }
 
 // ============================================================================
-// TAB 1: BESTAND & ARTIKEL
+// TAB 1: BESTAND & ARTIKEL (KOMPAKTE ZEILEN + AUFKLAPP-DETAILS + DIREKT PACKEN)
 // ============================================================================
 function setInventoryViewMode(mode) {
   state.inventoryViewMode = mode;
@@ -549,6 +569,15 @@ function updateViewToggleButtons() {
   if (!btnList || !btnGrid) return;
   btnList.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
   btnGrid.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+}
+
+function toggleItemRowExpand(itemId) {
+  if (state.expandedItemIds.includes(itemId)) {
+    state.expandedItemIds = state.expandedItemIds.filter(id => id !== itemId);
+  } else {
+    state.expandedItemIds.push(itemId);
+  }
+  renderInventory();
 }
 
 function onSortSelectChange() {
@@ -637,7 +666,7 @@ function renderInventory() {
   });
 
   const subCount = state.items.filter(i => i.is_subrental).length;
-  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel angezeigt` + (subCount > 0 ? ` (${subCount} Zumietartikel im Packlisten-Katalog)` : '');
+  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel angezeigt` + (subCount > 0 ? ` (${subCount} Zumietartikel)` : '');
 
   const container = document.getElementById('inventory-container');
   if (filtered.length === 0) {
@@ -654,7 +683,7 @@ function renderInventory() {
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600 select-none">
               <th onclick="toggleColumnSort('tenant')" class="p-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap">Bestand ${sortArrow('tenant')}</th>
-              <th onclick="toggleColumnSort('name')" class="p-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap">Artikel & Verknüpfungen ${sortArrow('name')}</th>
+              <th onclick="toggleColumnSort('name')" class="p-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap">Artikel (klicken für Details) ${sortArrow('name')}</th>
               <th onclick="toggleColumnSort('category')" class="p-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap">Kategorie ${sortArrow('category')}</th>
               <th onclick="toggleColumnSort('location')" class="p-3 cursor-pointer hover:bg-slate-100 whitespace-nowrap">Lagerplatz ${sortArrow('location')}</th>
               <th onclick="toggleColumnSort('avail')" class="p-3 cursor-pointer hover:bg-slate-100 text-right whitespace-nowrap">Verfügbar / Gesamt ${sortArrow('avail')}</th>
@@ -668,41 +697,64 @@ function renderInventory() {
               const avail = Math.max(0, (item.total_qty || 0) - defQty);
               const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
               const rules = Array.isArray(item.dependency_rules) ? item.dependency_rules : [];
+              const hasDetails = item.item_type === 'bundle' || item.item_type === 'dimension' || rules.length > 0 || !!item.notes;
+              const isExpanded = state.expandedItemIds.includes(item.id);
 
-              let subInfo = '';
-              if (item.item_type === 'bundle') {
-                subInfo += `<div class="text-[11px] text-purple-700 mt-0.5">Set: ${comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ')}</div>`;
-              } else if (item.item_type === 'dimension' && item.dimension_config) {
-                const cfg = item.dimension_config;
-                subInfo += `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System: ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik</div>`;
-              }
-              if (rules.length > 0) {
-                subInfo += `<div class="text-[11px] text-amber-700 mt-0.5">🔗 ${rules.length} Abfrage(n): ${rules.map(r => esc(r.question)).join(' • ')}</div>`;
-              }
-              if (item.notes) {
-                subInfo += `<div class="text-[11px] text-slate-400 italic">${esc(item.notes)}</div>`;
+              let expandedHtml = '';
+              if (isExpanded) {
+                const detailBlocks = [];
+                if (item.item_type === 'bundle') {
+                  detailBlocks.push(`<div><span class="font-bold text-purple-800">Komponenten-Set:</span> ${comps.length > 0 ? comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ') : 'Keine Bestandteile hinterlegt'}</div>`);
+                }
+                if (item.item_type === 'dimension' && item.dimension_config) {
+                  const cfg = item.dimension_config;
+                  detailBlocks.push(`<div><span class="font-bold text-blue-800">Maß-System (${cfg.min_width} m – ${cfg.max_width} m):</span> ${esc(cfg.base_item || 'Grundkoffer')}, ${esc(cfg.ext_item || 'Zusatzkiste')}, ${esc(cfg.reflector_item || 'Reflektor')} & ${esc(cfg.graphic_item || 'Grafik')}</div>`);
+                }
+                if (rules.length > 0) {
+                  detailBlocks.push(`<div><span class="font-bold text-amber-800">🔗 Hinterlegte Dispo-Abfragen (${rules.length}):</span>
+                    <ul class="list-disc list-inside mt-0.5 text-slate-700">
+                      ${rules.map(r => `<li><b>${esc(r.question)}</b> (${(r.options || []).map(o => esc(o.label)).join(' / ')})</li>`).join('')}
+                    </ul>
+                  </div>`);
+                }
+                if (item.notes) {
+                  detailBlocks.push(`<div><span class="font-bold text-slate-700">Notiz:</span> <span class="italic text-slate-600">${esc(item.notes)}</span></div>`);
+                }
+                if (detailBlocks.length === 0) {
+                  detailBlocks.push(`<div class="text-slate-400 italic">Keine weiteren Verknüpfungen oder Notizen hinterlegt.</div>`);
+                }
+
+                expandedHtml = `
+                  <tr class="bg-slate-50/95 border-b border-slate-200">
+                    <td colspan="7" class="px-4 py-3 text-xs space-y-1.5 border-l-4 border-indigo-500">
+                      ${detailBlocks.join('')}
+                    </td>
+                  </tr>
+                `;
               }
 
               return `
-                <tr class="hover:bg-slate-50/90 transition">
-                  <td class="p-3 align-top whitespace-nowrap">
+                <tr onclick="toggleItemRowExpand('${item.id}')" class="hover:bg-indigo-50/35 cursor-pointer transition select-none">
+                  <td class="p-3 align-middle whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(item.tenant_id))}</span>
                     ${item.is_subrental ? `<span class="ml-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">Zumietung</span>` : ''}
                   </td>
-                  <td class="p-3 align-top">
-                    <div class="font-bold text-slate-900">${esc(item.name)}</div>
-                    ${subInfo}
-                    ${!item.is_subrental && defQty > 0 ? `<span class="inline-block mt-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-bold">⚠️ ${defQty}× in Werkstatt</span>` : ''}
+                  <td class="p-3 align-middle">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-bold ${hasDetails ? 'text-indigo-600' : 'text-slate-300'}">${isExpanded ? '▾' : '▸'}</span>
+                      <span class="font-bold text-slate-900">${esc(item.name)}</span>
+                      ${!item.is_subrental && defQty > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-bold">⚠️ ${defQty}× Werkstatt</span>` : ''}
+                    </div>
                   </td>
-                  <td class="p-3 align-top text-xs text-slate-600 whitespace-nowrap">${esc(item.category)}</td>
-                  <td class="p-3 align-top text-xs text-slate-600 whitespace-nowrap">${item.is_subrental ? '<span class="text-amber-700">Zumiet-Katalog</span>' : (item.storage_location ? `📍 ${esc(item.storage_location)}` : '<span class="text-slate-300">-</span>')}</td>
-                  <td class="p-3 align-top text-right whitespace-nowrap">
+                  <td class="p-3 align-middle text-xs text-slate-600 whitespace-nowrap">${esc(item.category)}</td>
+                  <td class="p-3 align-middle text-xs text-slate-600 whitespace-nowrap">${item.is_subrental ? '<span class="text-amber-700">Zumiet-Katalog</span>' : (item.storage_location ? `📍 ${esc(item.storage_location)}` : '<span class="text-slate-300">-</span>')}</td>
+                  <td class="p-3 align-middle text-right whitespace-nowrap">
                     ${item.is_subrental
                       ? `<span class="text-xs text-amber-700 font-semibold">Für Packliste</span>`
                       : `<span class="font-extrabold text-base ${avail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${avail}</span> <span class="text-xs text-slate-400">/ ${item.total_qty}</span>`
                     }
                   </td>
-                  <td class="p-3 align-top whitespace-nowrap">
+                  <td class="p-3 align-middle whitespace-nowrap" onclick="event.stopPropagation()">
                     ${(!item.is_subrental && item.is_dguv) ? `
                       <div class="flex items-center gap-1.5">
                         ${getDguvStatusBadge(item.id)}
@@ -710,14 +762,19 @@ function renderInventory() {
                       </div>
                     ` : '<span class="text-xs text-slate-300">-</span>'}
                   </td>
-                  <td class="p-3 align-top text-right whitespace-nowrap">
+                  <td class="p-3 align-middle text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
+                      <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" title="Artikel direkt in eine Packliste buchen"
+                              class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm">
+                        + Packliste
+                      </button>
                       ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
                       <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
                       <button onclick="deleteItem('${item.id}')" title="Artikel löschen" class="px-2 py-1 rounded-lg text-slate-400 hover:text-red-600">✕</button>
                     </div>
                   </td>
                 </tr>
+                ${expandedHtml}
               `;
             }).join('')}
           </tbody>
@@ -732,40 +789,48 @@ function renderInventory() {
     const avail = Math.max(0, (item.total_qty || 0) - defQty);
     const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
     const rules = Array.isArray(item.dependency_rules) ? item.dependency_rules : [];
+    const isExpanded = state.expandedItemIds.includes(item.id);
 
     let typeBadge = item.is_subrental
       ? `<span class="px-2 py-0.5 rounded text-[11px] bg-amber-100 text-amber-800 font-bold">Zumietartikel</span>`
+      : item.item_type === 'bundle'
+      ? `<span class="px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-800 font-semibold">Komponenten-Set</span>`
+      : item.item_type === 'dimension'
+      ? `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System</span>`
       : `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">Einzelartikel</span>`;
-    let detailsHtml = '';
 
-    if (item.item_type === 'bundle') {
-      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-800 font-semibold">Komponenten-Set</span>`;
-      detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-        <span class="font-semibold">Enthält automatisch:</span>
-        <ul class="list-disc list-inside mt-0.5">${comps.map(c => `<li>${c.qty_per_unit}× ${esc(c.component_name)}</li>`).join('')}</ul>
-      </div>`;
-    } else if (item.item_type === 'dimension' && item.dimension_config) {
-      const cfg = item.dimension_config;
-      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (Breite & Höhe)</span>`;
-      detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-        <span class="font-semibold">Positionen:</span> ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
-      </div>`;
-    }
-    if (rules.length > 0) {
-      detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-amber-800">
-        <span class="font-semibold">🔗 Abfragen:</span> ${rules.map(r => esc(r.question)).join(' • ')}
-      </div>`;
+    let detailsHtml = '';
+    if (isExpanded) {
+      if (item.item_type === 'bundle') {
+        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+          <span class="font-semibold">Enthält automatisch:</span>
+          <ul class="list-disc list-inside mt-0.5">${comps.map(c => `<li>${c.qty_per_unit}× ${esc(c.component_name)}</li>`).join('')}</ul>
+        </div>`;
+      } else if (item.item_type === 'dimension' && item.dimension_config) {
+        const cfg = item.dimension_config;
+        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+          <span class="font-semibold">Positionen:</span> ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
+        </div>`;
+      }
+      if (rules.length > 0) {
+        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-amber-800">
+          <span class="font-semibold">🔗 Abfragen:</span> ${rules.map(r => esc(r.question)).join(' • ')}
+        </div>`;
+      }
+      if (item.notes) {
+        detailsHtml += `<p class="mt-2 text-xs text-slate-500 italic">${esc(item.notes)}</p>`;
+      }
     }
 
     return `
-      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+      <div onclick="toggleItemRowExpand('${item.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-300 cursor-pointer flex flex-col justify-between transition">
         <div>
           <div class="flex items-start justify-between gap-2">
             <div>
               <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 mb-1">${esc(tenantName(item.tenant_id))}</span>
               <span class="inline-block px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600 mb-1">${esc(item.category)}</span>
               ${typeBadge}
-              <h3 class="font-bold text-base text-slate-900 mt-1">${esc(item.name)}</h3>
+              <h3 class="font-bold text-base text-slate-900 mt-1">${isExpanded ? '▾' : '▸'} ${esc(item.name)}</h3>
             </div>
             <div class="text-right shrink-0">
               ${item.is_subrental
@@ -777,16 +842,18 @@ function renderInventory() {
 
           ${!item.is_subrental && item.storage_location ? `<div class="text-xs text-slate-500 mt-1">📍 Lagerplatz: <b>${esc(item.storage_location)}</b></div>` : ''}
           ${!item.is_subrental && defQty > 0 ? `<div class="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">⚠️ ${defQty}× in Werkstatt / Defekt</div>` : ''}
-          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="text-xs text-indigo-600 hover:underline font-semibold">+ Prüfung</button></div>` : ''}
+          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2" onclick="event.stopPropagation()">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="text-xs text-indigo-600 hover:underline font-semibold">+ Prüfung</button></div>` : ''}
           ${detailsHtml}
-          ${item.notes ? `<p class="mt-2 text-xs text-slate-500 italic">${esc(item.notes)}</p>` : ''}
         </div>
 
-        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-          ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt melden</button>` : '<span></span>'}
-          <div class="flex gap-2">
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs flex-wrap" onclick="event.stopPropagation()">
+          <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+            + Packliste
+          </button>
+          <div class="flex gap-1.5">
+            ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
             <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-            <button onclick="deleteItem('${item.id}')" class="px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+            <button onclick="deleteItem('${item.id}')" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
           </div>
         </div>
       </div>
@@ -795,8 +862,24 @@ function renderInventory() {
 }
 
 // ============================================================================
-// TAB 2: PACKLISTEN-ÜBERSICHT (STANDARDMÄSSIG GESCHLOSSEN) + FENSTER-ANSICHT
+// TAB 2: PACKLISTEN (LISTE / KACHELN + IM HAUPTFENSTER ODER SEPARATES FENSTER)
 // ============================================================================
+function setJobsViewMode(mode) {
+  state.jobsViewMode = mode;
+  localStorage.setItem('lw_jobs_view', mode);
+  updateJobsViewToggleButtons();
+  renderJobs();
+}
+
+function updateJobsViewToggleButtons() {
+  const isList = state.jobsViewMode === 'list';
+  const btnList = document.getElementById('jobs-view-mode-list');
+  const btnGrid = document.getElementById('jobs-view-mode-grid');
+  if (!btnList || !btnGrid) return;
+  btnList.className = `px-3 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+}
+
 function isLineSubrental(line) {
   const srcItem = line.source_item_id ? state.items.find(x => x.id === line.source_item_id) : null;
   if (srcItem && srcItem.is_subrental) return true;
@@ -805,28 +888,31 @@ function isLineSubrental(line) {
   return false;
 }
 
-function openJobWindow(jobId) {
+function openJobInline(jobId) {
   state.openJobId = jobId;
+  state.modalJobId = null;
+  document.getElementById('job-window-backdrop').classList.add('hidden');
+  renderJobs();
+}
+
+function closeJobInline() {
+  state.openJobId = null;
+  renderJobs();
+}
+
+function openJobWindow(jobId) {
+  state.modalJobId = jobId;
   renderJobWindow();
 }
 
 function closeJobWindow() {
-  state.openJobId = null;
+  state.modalJobId = null;
   document.getElementById('job-window-backdrop').classList.add('hidden');
   document.getElementById('job-window-content').innerHTML = '';
   renderJobs();
 }
 
-function renderJobWindow() {
-  const backdrop = document.getElementById('job-window-backdrop');
-  const box = document.getElementById('job-window-content');
-  const job = state.jobs.find(j => j.id === state.openJobId);
-
-  if (!job) {
-    backdrop.classList.add('hidden');
-    return;
-  }
-
+function buildPacklistWorkspaceHtml(job, mode) {
   const allLines = state.packlistLines.filter(l => l.job_id === job.id);
   const ownLines = allLines.filter(l => !isLineSubrental(l));
   const subLines = allLines.filter(l => isLineSubrental(l));
@@ -902,34 +988,71 @@ function renderJobWindow() {
     `;
   };
 
-  box.innerHTML = `
-    <div class="p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-      <div class="flex items-center gap-2.5 flex-wrap">
-        <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500 text-white">${esc(tenantName(job.tenant_id))}</span>
-        <h3 class="font-bold text-lg">📁 ${esc(job.title)}</h3>
-        ${job.event_date ? `<span class="text-xs text-slate-300">📅 ${job.event_date}</span>` : ''}
-        ${statusBadge}
+  const isModal = mode === 'modal';
+  const headerBar = isModal
+    ? `
+      <div class="p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500 text-white">${esc(tenantName(job.tenant_id))}</span>
+          <h3 class="font-bold text-lg">📁 ${esc(job.title)}</h3>
+          ${job.event_date ? `<span class="text-xs text-slate-300">📅 ${job.event_date}</span>` : ''}
+          ${statusBadge}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold shadow-sm">
+            + Artikel / Zumietung suchen & packen
+          </button>
+          <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold border border-slate-700">
+            🖨️ Drucken
+          </button>
+          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
+            📊 Excel
+          </button>
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
+          <button onclick="closeJobWindow()" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-extrabold ml-1">
+            ✕ Fenster schließen
+          </button>
+        </div>
       </div>
-
-      <div class="flex items-center gap-2 flex-wrap">
-        <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold shadow-sm">
-          + Artikel / Zumietung suchen & packen
-        </button>
-        <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold border border-slate-700">
-          🖨️ Drucken
-        </button>
-        <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
-          📊 Excel
-        </button>
-        ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
-        ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
-        <button onclick="closeJobWindow()" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-extrabold ml-1">
-          ✕ Packliste schließen
-        </button>
+    `
+    : `
+      <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <button onclick="closeJobInline()" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-800">
+            ← Zurück zur Übersicht
+          </button>
+          <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
+          <h3 class="font-bold text-lg text-slate-900">📁 ${esc(job.title)}</h3>
+          ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
+          ${statusBadge}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm">
+            + Artikel / Zumietung suchen & packen
+          </button>
+          <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
+            🗔 Fenster
+          </button>
+          <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">
+            🖨️ Drucken
+          </button>
+          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">
+            📊 Excel
+          </button>
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
+          <button onclick="closeJobInline()" title="Packliste schließen" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold">
+            ✕ Schließen
+          </button>
+        </div>
       </div>
-    </div>
+    `;
 
-    <div class="overflow-y-auto flex-1">
+  return `
+    ${headerBar}
+
+    <div class="${isModal ? 'overflow-y-auto flex-1' : ''}">
       <div class="px-4 py-2.5 bg-amber-50/70 border-b border-slate-200 flex flex-wrap items-center gap-2">
         <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Allgemeine Info:</span>
         <input type="text" value="${esc(job.pickup_info || '')}"
@@ -1035,17 +1158,32 @@ function renderJobWindow() {
       </div>
     </div>
 
-    <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end shrink-0">
-      <button onclick="closeJobWindow()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">
-        ← Packliste schließen & zur Gesamtübersicht
-      </button>
-    </div>
+    ${isModal ? `
+      <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end shrink-0">
+        <button onclick="closeJobWindow()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">
+          ← Fenster schließen & zur Gesamtübersicht
+        </button>
+      </div>
+    ` : ''}
   `;
+}
 
+function renderJobWindow() {
+  const backdrop = document.getElementById('job-window-backdrop');
+  const box = document.getElementById('job-window-content');
+  const job = state.jobs.find(j => j.id === state.modalJobId);
+
+  if (!job) {
+    backdrop.classList.add('hidden');
+    return;
+  }
+
+  box.innerHTML = buildPacklistWorkspaceHtml(job, 'modal');
   backdrop.classList.remove('hidden');
 }
 
 function renderJobs() {
+  updateJobsViewToggleButtons();
   const container = document.getElementById('jobs-container');
   const filteredJobs = state.jobs.filter(j => state.selectedTenant === 'ALL' || j.tenant_id === state.selectedTenant);
 
@@ -1056,53 +1194,127 @@ function renderJobs() {
     return;
   }
 
-  // Gesamtübersicht aller geschlossenen Packlisten
-  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filteredJobs.map(job => {
-    const allLines = state.packlistLines.filter(l => l.job_id === job.id);
-    const packedCount = allLines.filter(l => l.packed).length;
-    const loadedCount = allLines.filter(l => l.loaded).length;
-    const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
+  // Wenn eine Packliste im Hauptfenster geöffnet wurde, zeige sie dort direkt an
+  const activeInlineJob = state.openJobId ? filteredJobs.find(j => j.id === state.openJobId) : null;
+  if (activeInlineJob) {
+    container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">${buildPacklistWorkspaceHtml(activeInlineJob, 'inline')}</div>`;
+    if (state.modalJobId) renderJobWindow();
+    return;
+  }
 
-    const statusBadge = job.status === 'packing'
-      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
-      : job.status === 'out'
-      ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
-      : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
+  // Listen-Ansicht aller geschlossenen Packlisten
+  if (state.jobsViewMode === 'list') {
+    container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
+              <th class="p-3 whitespace-nowrap">Bestand</th>
+              <th class="p-3">Packliste / Job</th>
+              <th class="p-3 whitespace-nowrap">Einsatzdatum</th>
+              <th class="p-3 whitespace-nowrap">Status</th>
+              <th class="p-3 whitespace-nowrap">Fortschritt</th>
+              <th class="p-3 text-right whitespace-nowrap">Öffnen / Aktionen</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${filteredJobs.map(job => {
+              const allLines = state.packlistLines.filter(l => l.job_id === job.id);
+              const packedCount = allLines.filter(l => l.packed).length;
+              const loadedCount = allLines.filter(l => l.loaded).length;
+              const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
 
-    return `
-      <div onclick="openJobWindow('${job.id}')"
-           class="bg-white hover:bg-indigo-50/35 rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between group">
-        <div>
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
-              ${statusBadge}
-            </div>
-            <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1">✕</button>
-          </div>
+              const statusBadge = job.status === 'packing'
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
+                : job.status === 'out'
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+                : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
 
-          <div class="flex items-start gap-2.5">
-            <span class="text-2xl leading-none mt-0.5">📁</span>
-            <div>
-              <h3 class="font-bold text-base text-slate-900 group-hover:text-indigo-700 transition">${esc(job.title)}</h3>
-              ${job.event_date ? `<div class="text-xs text-slate-500 mt-0.5">📅 ${job.event_date}</div>` : ''}
-              ${job.pickup_info ? `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2 py-1 mt-1.5">🚚 ${esc(job.pickup_info)}</div>` : ''}
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-          <div class="text-slate-600 font-semibold">
-            ${allLines.length} Pos. • ${packedCount} gepackt • ${loadedCount} geladen
-            ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumietung</span>` : ''}
-          </div>
-          <span class="font-bold text-indigo-600 group-hover:translate-x-0.5 transition">Fenster öffnen →</span>
-        </div>
+              return `
+                <tr onclick="openJobInline('${job.id}')" class="hover:bg-indigo-50/40 cursor-pointer transition">
+                  <td class="p-3 whitespace-nowrap">
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                  </td>
+                  <td class="p-3">
+                    <div class="font-bold text-slate-900">📁 ${esc(job.title)}</div>
+                    ${job.pickup_info ? `<div class="text-[11px] text-amber-800 mt-0.5">🚚 ${esc(job.pickup_info)}</div>` : ''}
+                  </td>
+                  <td class="p-3 text-xs text-slate-600 whitespace-nowrap">${job.event_date ? `📅 ${job.event_date}` : '<span class="text-slate-300">-</span>'}</td>
+                  <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+                  <td class="p-3 text-xs text-slate-600 font-semibold whitespace-nowrap">
+                    ${allLines.length} Pos. • ${packedCount} gepackt • ${loadedCount} geladen
+                    ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumietung</span>` : ''}
+                  </td>
+                  <td class="p-3 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                    <div class="inline-flex items-center gap-1.5 text-xs">
+                      <button onclick="openJobInline('${job.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                        Öffnen
+                      </button>
+                      <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+                        🗔 Fenster
+                      </button>
+                      <button onclick="deleteJob('${job.id}')" title="Packliste löschen" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     `;
-  }).join('') + `</div>`;
+  } else {
+    // Kachel-Ansicht aller geschlossenen Packlisten
+    container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filteredJobs.map(job => {
+      const allLines = state.packlistLines.filter(l => l.job_id === job.id);
+      const packedCount = allLines.filter(l => l.packed).length;
+      const loadedCount = allLines.filter(l => l.loaded).length;
+      const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
 
-  if (state.openJobId) {
+      const statusBadge = job.status === 'packing'
+        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
+        : job.status === 'out'
+        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+        : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
+
+      return `
+        <div onclick="openJobInline('${job.id}')"
+             class="bg-white hover:bg-indigo-50/35 rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between group">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                ${statusBadge}
+              </div>
+              <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1">✕</button>
+            </div>
+
+            <div class="flex items-start gap-2.5">
+              <span class="text-2xl leading-none mt-0.5">📁</span>
+              <div>
+                <h3 class="font-bold text-base text-slate-900 group-hover:text-indigo-700 transition">${esc(job.title)}</h3>
+                ${job.event_date ? `<div class="text-xs text-slate-500 mt-0.5">📅 ${job.event_date}</div>` : ''}
+                ${job.pickup_info ? `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2 py-1 mt-1.5">🚚 ${esc(job.pickup_info)}</div>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs" onclick="event.stopPropagation()">
+            <div class="text-slate-600 font-semibold">
+              ${allLines.length} Pos. • ${packedCount} gepackt
+              ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumiet.</span>` : ''}
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="openJobInline('${job.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Öffnen</button>
+              <button onclick="openJobWindow('${job.id}')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">🗔 Fenster</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') + `</div>`;
+  }
+
+  if (state.modalJobId) {
     renderJobWindow();
   }
 }
@@ -1183,18 +1395,20 @@ async function saveJob(e) {
   if (error) return alert(error.message);
 
   state.openJobId = null;
+  state.modalJobId = null;
   closeModal();
   await loadAllData();
 }
 
 // ============================================================================
 // SUCHE & AUSWAHL FÜR ARTIKEL, ZUMIETARTIKEL, SETS & KOMPONENTEN
+// (SOWOHL AUS DER PACKLISTE HERAUS ALS AUCH DIREKT AUS "BESTAND & ARTIKEL")
 // ============================================================================
 let currentPackSearchEntries = [];
 let currentPackSearchKindFilter = 'ALL';
 
 function buildPackSearchCatalog(job) {
-  let baseItems = state.items.filter(i => i.tenant_id === job.tenant_id);
+  let baseItems = job ? state.items.filter(i => i.tenant_id === job.tenant_id) : [...state.items];
   if (baseItems.length === 0) baseItems = [...state.items];
 
   const subrentalItems = state.items.filter(i => i.is_subrental);
@@ -1274,16 +1488,39 @@ function buildPackSearchCatalog(job) {
   return entries.sort((a, b) => a.title.localeCompare(b.title, 'de'));
 }
 
-function openAddPackLineModal(jobId) {
-  const job = state.jobs.find(j => j.id === jobId);
+function openAddItemToPacklistFromCatalog(itemId) {
+  if (state.jobs.length === 0) {
+    alert('Bitte lege zuerst mindestens eine Packliste unter „2. Packlisten & Zumietung“ an.');
+    return;
+  }
+  const item = state.items.find(i => i.id === itemId);
+  const matchingJob = (item && state.jobs.find(j => j.tenant_id === item.tenant_id && j.status === 'packing'))
+    || state.jobs.find(j => j.status === 'packing')
+    || state.jobs[0];
+  openAddPackLineModal(matchingJob.id, itemId, true);
+}
+
+function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false) {
+  const job = state.jobs.find(j => j.id === jobId) || state.jobs[0];
   if (!job) return;
-  currentPackSearchEntries = buildPackSearchCatalog(job);
+  currentPackSearchEntries = buildPackSearchCatalog(allowJobSelect ? null : job);
   currentPackSearchKindFilter = 'ALL';
+
+  const jobHeaderHtml = allowJobSelect
+    ? `
+      <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+        <label class="block text-xs font-bold text-indigo-950 mb-1">📁 Ziel-Packliste wählen:</label>
+        <select id="add-pl-job-select" class="w-full px-3 py-2 border border-indigo-300 rounded-lg bg-white font-bold text-slate-900">
+          ${state.jobs.map(j => `<option value="${j.id}" ${j.id === job.id ? 'selected' : ''}>[${esc(tenantName(j.tenant_id))}] ${esc(j.title)}${j.event_date ? ' (' + j.event_date + ')' : ''}</option>`).join('')}
+        </select>
+      </div>
+    `
+    : `<p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> • Hinterlegte Abfragen erscheinen sofort unten.</p>`;
 
   openModal(`
     <h3 class="text-lg font-bold mb-1">➕ Artikel, Zumietung, Set oder Komponente packen</h3>
-    <p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> • Hinterlegte Abfragen erscheinen sofort unten.</p>
-    <form onsubmit="saveAddedPackLine(event, '${jobId}')" class="space-y-3 text-sm">
+    ${jobHeaderHtml}
+    <form onsubmit="saveAddedPackLine(event, '${job.id}')" class="space-y-3 text-sm mt-3">
 
       <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
         <div class="grid grid-cols-12 gap-2 items-end">
@@ -1359,7 +1596,7 @@ function openAddPackLineModal(jobId) {
 
       <label class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
         <input id="add-pl-is-sub" type="checkbox" class="w-4 h-4 rounded text-amber-600" />
-        <span class="text-xs font-bold text-amber-950">Als Zumietartikel auf der Packliste kennzeichnen</span>
+        <span class="text-xs font-bold text-amber-950">Als Zumietartikel auf der Packliste kennzeichnen (inkl. Zusatzartikel aus Abfragen)</span>
       </label>
 
       <div class="grid grid-cols-2 gap-3">
@@ -1390,8 +1627,10 @@ function openAddPackLineModal(jobId) {
     </form>
   `);
 
-  filterPackSearchPicker();
-  setTimeout(() => document.getElementById('add-pl-search')?.focus(), 50);
+  filterPackSearchPicker(presetItemId ? `item:${presetItemId}` : null);
+  if (!presetItemId) {
+    setTimeout(() => document.getElementById('add-pl-search')?.focus(), 50);
+  }
 }
 
 function setPackSearchKindFilter(kind) {
@@ -1403,7 +1642,7 @@ function setPackSearchKindFilter(kind) {
   filterPackSearchPicker();
 }
 
-function filterPackSearchPicker() {
+function filterPackSearchPicker(forceEntryId = null) {
   const q = (document.getElementById('add-pl-search')?.value || '').trim().toLowerCase();
   const sel = document.getElementById('add-pl-picker');
   const countEl = document.getElementById('add-pl-hit-count');
@@ -1422,7 +1661,9 @@ function filterPackSearchPicker() {
   sel.innerHTML = `<option value="">-- Freitext / Manuelle Position --</option>` +
     matches.map(e => `<option value="${escAttr(e.id)}">[${esc(e.badge)}] ${esc(e.title)}</option>`).join('');
 
-  if (matches.length > 0) {
+  if (forceEntryId && matches.some(m => m.id === forceEntryId)) {
+    sel.value = forceEntryId;
+  } else if (matches.length > 0) {
     sel.selectedIndex = 1;
   } else {
     sel.selectedIndex = 0;
@@ -1546,8 +1787,10 @@ function fmtDimNum(num) {
   return `${String(num).replace('.', ',')} m`;
 }
 
-async function saveAddedPackLine(e, jobId) {
+async function saveAddedPackLine(e, fallbackJobId) {
   e.preventDefault();
+  const jobSelectEl = document.getElementById('add-pl-job-select');
+  const jobId = jobSelectEl ? jobSelectEl.value : fallbackJobId;
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
 
@@ -1632,9 +1875,9 @@ async function saveAddedPackLine(e, jobId) {
       linesToAdd.push({
         source_item_id: item.id,
         line_name: `${grafikName} (${wLabel} × ${hLabel}, ${sideText})`,
-        category: 'Grafik',
+        category: isSub ? 'Zumietung' : 'Grafik',
         qty_required: qty * graphicSides,
-        storage_location: '',
+        storage_location: isSub ? 'Zumietung' : '',
         show_on_print: gfxOnPrint,
         is_sub_item: false,
         sort_order: orderCounter++
@@ -1679,6 +1922,7 @@ async function saveAddedPackLine(e, jobId) {
     });
   }
 
+  // Zusatzartikel aus Abfragen sammeln
   const extraItems = [];
   if (item && Array.isArray(item.dependency_rules)) {
     item.dependency_rules.forEach((rule, rIdx) => {
@@ -1706,14 +1950,17 @@ async function saveAddedPackLine(e, jobId) {
     });
   });
 
+  // Wenn der Hauptartikel ein Zumietartikel ist (isSub === true), landen ALLE Zusatzartikel
+  // aus dessen Abfrage ebenfalls sauber in der Zumietartikel-Liste!
   extraItems.forEach(ex => {
     const catItem = findCatalogItemByName(ex.name);
+    const treatAsSub = isSub || !!(catItem && catItem.is_subrental);
     linesToAdd.push({
       source_item_id: catItem ? catItem.id : null,
       line_name: catItem ? catItem.name : ex.name,
-      category: catItem ? (catItem.is_subrental ? 'Zumietung' : catItem.category) : 'Zubehör & Kabel',
+      category: treatAsSub ? 'Zumietung' : (catItem ? catItem.category : 'Zubehör & Kabel'),
       qty_required: qty * (ex.qtyPerUnit || 1),
-      storage_location: catItem ? (catItem.is_subrental ? 'Zumietung' : (catItem.storage_location || '')) : '',
+      storage_location: treatAsSub ? 'Zumietung' : (catItem ? (catItem.storage_location || '') : ''),
       show_on_print: true,
       is_sub_item: false,
       sort_order: orderCounter++
@@ -1721,8 +1968,11 @@ async function saveAddedPackLine(e, jobId) {
   });
 
   for (const line of linesToAdd) {
+    const lineIsSub = isLineSubrental(line);
     const existing = state.packlistLines.find(
-      l => l.job_id === jobId && l.line_name.trim().toLowerCase() === line.line_name.trim().toLowerCase()
+      l => l.job_id === jobId &&
+           l.line_name.trim().toLowerCase() === line.line_name.trim().toLowerCase() &&
+           isLineSubrental(l) === lineIsSub
     );
     if (existing) {
       await sb.from('job_packlist_lines').update({
@@ -1734,7 +1984,6 @@ async function saveAddedPackLine(e, jobId) {
     }
   }
 
-  state.openJobId = jobId;
   closeModal();
   await loadAllData();
 }
@@ -1851,7 +2100,7 @@ async function saveSubrental(e, jobId) {
 
   const catItem = state.items.find(i => i.name.toLowerCase() === item_description.toLowerCase());
   const existingLine = state.packlistLines.find(
-    l => l.job_id === jobId && l.line_name.toLowerCase() === item_description.toLowerCase()
+    l => l.job_id === jobId && l.line_name.toLowerCase() === item_description.toLowerCase() && isLineSubrental(l)
   );
   const packNote = [pickup_datetime ? `Abholung: ${pickup_datetime}` : '', notes].filter(Boolean).join(' • ');
 
@@ -1888,7 +2137,6 @@ async function saveSubrental(e, jobId) {
     }
   }
 
-  state.openJobId = jobId;
   closeModal();
   await loadAllData();
 }
@@ -2178,7 +2426,7 @@ function openItemModal(itemId = null) {
         <input id="it-subrental" type="checkbox" ${item?.is_subrental ? 'checked' : ''} onchange="toggleSubrentalItemMode()" class="w-4 h-4 rounded text-amber-600" />
         <div>
           <div class="text-xs font-bold text-amber-950">Zumietartikel (taucht NICHT im eigenen Lagerbestand auf)</div>
-          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Suche & Auswahl und unten auf der Packliste als Zumietartikel.</div>
+          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Suche & Auswahl und unten auf der Packliste als Zumietartikel (inkl. Zusatzartikel aus Abfragen).</div>
         </div>
       </label>
 
@@ -2396,8 +2644,9 @@ async function setJobStatus(jobId, status) {
 
 async function deleteJob(jobId) {
   if (!confirm('Diesen Job / diese Packliste löschen?')) return;
-  if (state.openJobId === jobId) {
-    state.openJobId = null;
+  if (state.openJobId === jobId) state.openJobId = null;
+  if (state.modalJobId === jobId) {
+    state.modalJobId = null;
     document.getElementById('job-window-backdrop').classList.add('hidden');
   }
   await sb.from('jobs').delete().eq('id', jobId);
