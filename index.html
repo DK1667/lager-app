@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Lager, Packliste, DGUV V3 & Werkstatt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; color: black !important; font-size: 11pt; }
+      .print-table th, .print-table td { border: 1px solid #333 !important; padding: 6px 8px !important; }
+      .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
+
+  <!-- ===================================================================== -->
+  <!-- 1. SUPABASE SETUP / LOGIN SCREEN                                      -->
+  <!-- ===================================================================== -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border border-slate-200">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow">LW</div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">Lager & Werkstatt</h1>
+          <p class="text-xs text-slate-500">Bestand • Packlisten • DGUV V3 • Reparatur</p>
+        </div>
+      </div>
+
+      <!-- Supabase Config Box (wird ausgeblendet, wenn Keys gespeichert oder im Code hinterlegt sind) -->
+      <div id="config-box" class="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-semibold text-amber-900">Supabase-Verbindung</span>
+          <button type="button" onclick="toggleConfig()" class="text-xs text-amber-700 underline">Ein-/Ausblenden</button>
+        </div>
+        <div id="config-fields" class="space-y-2.5">
+          <p class="text-xs text-amber-800">Einmalig Project URL & anon public Key aus Supabase eintragen:</p>
+          <input id="cfg-url" type="url" placeholder="https://xxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
+          <input id="cfg-key" type="text" placeholder="anon public key (eyJhbGci...)" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
+          <button type="button" onclick="saveConfig()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Verbindung speichern</button>
+        </div>
+      </div>
+
+      <!-- Login Form -->
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Benutzername</label>
+          <input id="login-user" type="text" required placeholder="z. B. daniel, patrick, markus" autocomplete="username"
+                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+          <p class="text-[11px] text-slate-400 mt-1">Nur den Namen eingeben (<code>@lager.intern</code> wird automatisch ergänzt).</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Passwort</label>
+          <input id="login-pass" type="password" required placeholder="••••••••" autocomplete="current-password"
+                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+        </div>
+        <div id="login-error" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs"></div>
+        <button type="submit" id="login-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow transition">
+          Einloggen
+        </button>
+      </form>
+      <div class="mt-4 text-center">
+        <button type="button" onclick="document.getElementById('config-fields').classList.remove('hidden'); document.getElementById('config-box').classList.remove('hidden');" class="text-xs text-slate-400 hover:text-slate-600">
+          Supabase-Keys ändern
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 2. HAUPTANWENDUNG                                                     -->
+  <!-- ===================================================================== -->
+  <div id="app-shell" class="hidden">
+    <!-- Top Header -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md no-print">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold">LW</div>
+          <div>
+            <div class="font-bold leading-tight">Lager & Werkstatt</div>
+            <div class="text-[11px] text-slate-400">Angemeldet als: <span id="current-user-label" class="text-indigo-300 font-semibold"></span></div>
+          </div>
+        </div>
+
+        <!-- Globaler Bestandsbereich-Filter -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="text-xs text-slate-300">Bestand:</label>
+          <select id="global-tenant-filter" onchange="onTenantFilterChange()" class="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-1.5 font-medium">
+            <option value="ALL">Alle Bestände</option>
+          </select>
+          <button onclick="openNewTenantModal()" title="Neuen Bestandsbereich anlegen" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold">+ Bereich</button>
+          <button onclick="handleLogout()" class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-200 border border-red-500/30 rounded-lg text-xs font-semibold ml-1">Logout</button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-slate-800 text-sm">
+        <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-indigo-400 text-white whitespace-nowrap">1. Bestand & Artikel</button>
+        <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Rücknahme</button>
+        <button onclick="switchTab('workshop')" id="tab-btn-workshop" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+          3. Werkstatt <span id="workshop-badge" class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-500 text-slate-900 font-bold">0</span>
+        </button>
+        <button onclick="switchTab('dguv')" id="tab-btn-dguv" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">4. DGUV V3 (Benning)</button>
+        <button onclick="switchTab('stocktake')" id="tab-btn-stocktake" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">5. Inventur-Druck</button>
+      </nav>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: BESTAND & ARTIKEL                                          -->
+      <!-- ================================================================= -->
+      <section id="view-inventory" class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div class="flex flex-wrap items-center gap-2 flex-1">
+            <input id="inv-search" oninput="renderInventory()" type="text" placeholder="Artikel, Kategorie oder Lagerplatz suchen..." class="px-3.5 py-2 border border-slate-300 rounded-lg text-sm w-full sm:w-72" />
+            <select id="inv-cat-filter" onchange="renderInventory()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+              <option value="ALL">Alle Kategorien</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="seed-btn" onclick="seedExampleData()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-sm font-semibold">
+              ✨ Beispieldaten (Big LED UP & Co.) laden
+            </button>
+            <button onclick="openItemModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
+              + Neuer Artikel
+            </button>
+          </div>
+        </div>
+
+        <div id="inventory-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: PACKLISTEN & RÜCKNAHME                                     -->
+      <!-- ================================================================= -->
+      <section id="view-jobs" class="hidden space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+          <div>
+            <h2 class="font-bold text-lg text-slate-900">Einsätze, Dynamische Packlisten & Rücknahme</h2>
+            <p class="text-xs text-slate-500">Standard-Bestand für Packlisten: BGHW (andere Bereiche jederzeit wählbar).</p>
+          </div>
+          <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
+            + Neue Packliste / Job
+          </button>
+        </div>
+
+        <div id="jobs-container" class="space-y-4"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: WERKSTATT & 6-MONATE-FOTO-ARCHIV                           -->
+      <!-- ================================================================= -->
+      <section id="view-workshop" class="hidden space-y-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="setWorkshopFilter('OPEN_ALL')" id="ws-filter-OPEN_ALL" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white">Alle offenen Defekte</button>
+            <button onclick="setWorkshopFilter('Lager')" id="ws-filter-Lager" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Lager</button>
+            <button onclick="setWorkshopFilter('Büro G7')" id="ws-filter-Büro G7" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Büro G7 (Patrick/Markus)</button>
+            <button onclick="setWorkshopFilter('Daniel Werkstatt')" id="ws-filter-Daniel Werkstatt" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Daniel Werkstatt</button>
+            <button onclick="setWorkshopFilter('ARCHIVED')" id="ws-filter-ARCHIVED" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Archiv (6 Monate Foto-Aufbewahrung)</button>
+          </div>
+          <button onclick="openDefectModal(null)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm">
+            + Defekt direkt melden (mit Handy-Foto)
+          </button>
+        </div>
+
+        <div id="workshop-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: DGUV V3 / BENNING ST 755+                                  -->
+      <!-- ================================================================= -->
+      <section id="view-dguv" class="hidden space-y-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="font-bold text-lg text-slate-900">DGUV V3 Prüfungen (Benning ST 755+)</h2>
+            <p class="text-xs text-slate-500">Prüfnummern & PDF-Prüfprotokolle direkt am elektrischen Gerät hinterlegen und per Klick öffnen.</p>
+          </div>
+          <button onclick="openDguvModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
+            + Benning-Prüfung / PDF erfassen
+          </button>
+        </div>
+
+        <div id="dguv-list" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 5: INVENTUR & DIN-A4 DRUCK                                    -->
+      <!-- ================================================================= -->
+      <section id="view-stocktake" class="hidden space-y-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="text-sm font-semibold">Bestandsbereich für Inventur:</label>
+            <select id="stocktake-tenant-select" onchange="renderStocktake()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold bg-white"></select>
+          </div>
+          <button onclick="window.print()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow">
+            🖨️ Inventurliste drucken / als PDF speichern
+          </button>
+        </div>
+
+        <div id="stocktake-print-area" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 card"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODALS (ARTIKEL, JOB/PACKLISTE, DEFEKT+FOTO, REPARATUR, DGUV, BEREICH)-->
+  <!-- ===================================================================== -->
+  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 my-8 border border-slate-200"></div>
+  </div>
+
+<script>
+// ============================================================================
+// OPTIONAL: HIER FEST EINTRAGEN, DAMIT ES AUF JEDEM HANDY SOFORT STARTET
+// ============================================================================
+const HARDCODED_SUPABASE_URL = "https://emautxpsgzzbyzvstzee.supabase.co"; // z.B. "https://xyzcompany.supabase.co"
+const HARDCODED_SUPABASE_KEY = "sb_publishable_aSwvw4saWnLRhEztMgyS4w_-_OJsxj2"; // z.B. "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+// ============================================================================
+// INITIALISIERUNG & GLOBALER STATE
+// ============================================================================
+let sb = null;
+let currentUser = null;
+let state = {
+  tenants: [],
+  items: [],
+  bundleComponents: [],
+  dguvTests: [],
+  jobs: [],
+  jobBookings: [],
+  packlistLines: [],
+  workshopTickets: [],
+  selectedTenant: 'ALL',
+  workshopFilter: 'OPEN_ALL'
+};
+
+function getConfig() {
+  return {
+    url: HARDCODED_SUPABASE_URL || localStorage.getItem('lw_sb_url') || '',
+    key: HARDCODED_SUPABASE_KEY || localStorage.getItem('lw_sb_key') || ''
+  };
+}
+
+function initSupabaseClient() {
+  const { url, key } = getConfig();
+  document.getElementById('cfg-url').value = url;
+  document.getElementById('cfg-key').value = key;
+  if (url && key) {
+    sb = window.supabase.createClient(url, key);
+    document.getElementById('config-fields').classList.add('hidden');
+  }
+}
+
+function toggleConfig() {
+  document.getElementById('config-fields').classList.toggle('hidden');
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url || !key) return alert('Bitte Project URL und anon public Key eintragen.');
+  localStorage.setItem('lw_sb_url', url);
+  localStorage.setItem('lw_sb_key', key);
+  initSupabaseClient();
+  alert('Supabase-Verbindung gespeichert! Jetzt kannst du dich einloggen.');
+}
+
+// ============================================================================
+// AUTHENTIFIZIERUNG (EINFACHER NAME + PASSWORT -> @lager.intern)
+// ============================================================================
+async function handleLogin(e) {
+  e.preventDefault();
+  if (!sb) return alert('Bitte zuerst oben Supabase Project URL & Key speichern.');
+  const errBox = document.getElementById('login-error');
+  errBox.classList.add('hidden');
+
+  let rawUser = document.getElementById('login-user').value.trim().toLowerCase();
+  const password = document.getElementById('login-pass').value;
+  const email = rawUser.includes('@') ? rawUser : `${rawUser}@lager.intern`;
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Logge ein...';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = 'Einloggen';
+
+  if (error) {
+    errBox.textContent = 'Login fehlgeschlagen: ' + error.message;
+    errBox.classList.remove('hidden');
+    return;
+  }
+  onAuthenticated(data.user);
+}
+
+async function handleLogout() {
+  if (sb) await sb.auth.signOut();
+  location.reload();
+}
+
+async function onAuthenticated(user) {
+  currentUser = user;
+  const shortName = user.email.split('@')[0];
+  document.getElementById('current-user-label').textContent = shortName.charAt(0).toUpperCase() + shortName.slice(1);
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+
+  await runSixMonthPhotoCleanup();
+  await loadAllData();
+}
+
+// ============================================================================
+// AUTOMATISCHE 6-MONATE-FOTO-BEREINIGUNG IM ARCHIV
+// ============================================================================
+async function runSixMonthPhotoCleanup() {
+  try {
+    const nowIso = new Date().toISOString();
+    const { data: expired } = await sb
+      .from('workshop_tickets')
+      .select('id, photo_path')
+      .eq('status', 'archived')
+      .eq('photo_deleted', false)
+      .not('photo_path', 'is', null)
+      .lte('delete_photo_after', nowIso);
+
+    if (expired && expired.length > 0) {
+      const paths = expired.map(t => t.photo_path).filter(Boolean);
+      if (paths.length > 0) {
+        await sb.storage.from('defect-photos').remove(paths);
+      }
+      const ids = expired.map(t => t.id);
+      await sb.from('workshop_tickets')
+        .update({ photo_deleted: true, photo_url: null })
+        .in('id', ids);
+    }
+  } catch (err) {
+    console.warn('Auto-Cleanup Info:', err);
+  }
+}
+
+// ============================================================================
+// DATEN LADEN & RENDERN
+// ============================================================================
+async function loadAllData() {
+  const [tRes, iRes, bRes, dRes, jRes, jbRes, plRes, wRes] = await Promise.all([
+    sb.from('tenants').select('*').order('name'),
+    sb.from('items').select('*').order('name'),
+    sb.from('item_bundle_components').select('*'),
+    sb.from('dguv_tests').select('*').order('test_date', { ascending: false }),
+    sb.from('jobs').select('*').order('created_at', { ascending: false }),
+    sb.from('job_bookings').select('*'),
+    sb.from('job_packlist_lines').select('*').order('category').order('line_name'),
+    sb.from('workshop_tickets').select('*').order('reported_at', { ascending: false })
+  ]);
+
+  state.tenants = tRes.data || [];
+  state.items = iRes.data || [];
+  state.bundleComponents = bRes.data || [];
+  state.dguvTests = dRes.data || [];
+  state.jobs = jRes.data || [];
+  state.jobBookings = jbRes.data || [];
+  state.packlistLines = plRes.data || [];
+  state.workshopTickets = wRes.data || [];
+
+  populateTenantDropdowns();
+  renderAll();
+}
+
+function populateTenantDropdowns() {
+  const globalSel = document.getElementById('global-tenant-filter');
+  const prevGlobal = globalSel.value;
+  globalSel.innerHTML = `<option value="ALL">Alle Bestände (${state.items.length})</option>` +
+    state.tenants.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  if ([...globalSel.options].some(o => o.value === prevGlobal)) globalSel.value = prevGlobal;
+
+  const stSel = document.getElementById('stocktake-tenant-select');
+  const prevSt = stSel.value;
+  stSel.innerHTML = state.tenants.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('') +
+    `<option value="ALL">Gesamtbestand (Alle Bereiche)</option>`;
+  if ([...stSel.options].some(o => o.value === prevSt)) stSel.value = prevSt;
+}
+
+function onTenantFilterChange() {
+  state.selectedTenant = document.getElementById('global-tenant-filter').value;
+  renderAll();
+}
+
+function renderAll() {
+  renderInventory();
+  renderJobs();
+  renderWorkshop();
+  renderDguv();
+  renderStocktake();
+}
+
+function switchTab(tab) {
+  ['inventory', 'jobs', 'workshop', 'dguv', 'stocktake'].forEach(t => {
+    document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById(`tab-btn-${t}`);
+    btn.classList.toggle('border-indigo-400', t === tab);
+    btn.classList.toggle('text-white', t === tab);
+    btn.classList.toggle('border-transparent', t !== tab);
+    btn.classList.toggle('text-slate-400', t !== tab);
+  });
+}
+
+// ============================================================================
+// HILFSFUNKTIONEN: BESTANDSBERECHNUNG & DGUV STATUS
+// ============================================================================
+function tenantName(id) {
+  const t = state.tenants.find(x => x.id === id);
+  return t ? t.name : 'Unbekannt';
+}
+
+function getDefectiveQtyForItem(itemId) {
+  return state.workshopTickets
+    .filter(w => w.item_id === itemId && w.status !== 'archived')
+    .reduce((sum, w) => sum + (w.qty || 0), 0);
+}
+
+function getDguvStatusBadge(itemId) {
+  const tests = state.dguvTests.filter(d => d.item_id === itemId);
+  if (tests.length === 0) return `<span class="px-2 py-0.5 rounded text-[11px] bg-amber-100 text-amber-800 font-semibold">DGUV: Kein Protokoll</span>`;
+  const today = new Date().toISOString().slice(0, 10);
+  const hasFailed = tests.some(t => t.status === 'failed');
+  const hasExpired = tests.some(t => t.next_test_date && t.next_test_date < today);
+  if (hasFailed || hasExpired) {
+    return `<span class="px-2 py-0.5 rounded text-[11px] bg-red-100 text-red-800 font-bold">DGUV: Prüfung fällig / Mangel (${tests.length})</span>`;
+  }
+  return `<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-800 font-bold">DGUV V3 OK (${tests.length} geprüft)</span>`;
+}
+
+// ============================================================================
+// TAB 1: BESTAND & ARTIKEL RENDERN
+// ============================================================================
+function renderInventory() {
+  const search = (document.getElementById('inv-search').value || '').toLowerCase();
+  const catFilter = document.getElementById('inv-cat-filter').value;
+
+  // Kategorien aktualisieren
+  const cats = [...new Set(state.items.map(i => i.category).filter(Boolean))].sort();
+  const catSel = document.getElementById('inv-cat-filter');
+  catSel.innerHTML = `<option value="ALL">Alle Kategorien</option>` + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if ([...catSel.options].some(o => o.value === catFilter)) catSel.value = catFilter;
+
+  document.getElementById('seed-btn').classList.toggle('hidden', state.items.length > 0);
+
+  let filtered = state.items.filter(item => {
+    if (state.selectedTenant !== 'ALL' && item.tenant_id !== state.selectedTenant) return false;
+    if (catFilter !== 'ALL' && item.category !== catFilter) return false;
+    if (search) {
+      const hay = `${item.name} ${item.category} ${item.storage_location || ''} ${item.notes || ''}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const container = document.getElementById('inventory-list');
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="col-span-full bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
+      Keine Artikel in dieser Auswahl gefunden. Klicke oben auf <b>„+ Neuer Artikel“</b> oder lade die <b>Beispieldaten</b>.
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(item => {
+    const defQty = getDefectiveQtyForItem(item.id);
+    const avail = Math.max(0, (item.total_qty || 0) - defQty);
+    const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
+
+    let typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">Einzelartikel</span>`;
+    let detailsHtml = '';
+
+    if (item.item_type === 'bundle') {
+      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-800 font-semibold">Komponenten-Set</span>`;
+      detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+        <span class="font-semibold">Enthält automatisch:</span>
+        <ul class="list-disc list-inside mt-0.5">${comps.map(c => `<li>${c.qty_per_unit}× ${esc(c.component_name)}</li>`).join('')}</ul>
+      </div>`;
+    } else if (item.item_type === 'dimension' && item.dimension_config) {
+      const cfg = item.dimension_config;
+      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (${cfg.min_width}–${cfg.max_width} m)</span>`;
+      detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+        <span class="font-semibold">Pack-Regel:</span> Grundmaß ${cfg.min_width} m = <b>1× ${esc(cfg.base_item)}</b>, je +${cfg.step_width} m Breite = <b>+1× ${esc(cfg.ext_item)}</b>.
+      </div>`;
+    }
+
+    return `
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+        <div>
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 mb-1">${esc(tenantName(item.tenant_id))}</span>
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600 mb-1">${esc(item.category)}</span>
+              ${typeBadge}
+              <h3 class="font-bold text-base text-slate-900 mt-1">${esc(item.name)}</h3>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-xl font-extrabold ${avail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${avail} <span class="text-xs font-normal text-slate-400">/ ${item.total_qty}</span></div>
+              <div class="text-[11px] text-slate-500">verfügbar</div>
+            </div>
+          </div>
+
+          ${item.storage_location ? `<div class="text-xs text-slate-500 mt-1">📍 Lagerplatz: <b>${esc(item.storage_location)}</b></div>` : ''}
+          ${defQty > 0 ? `<div class="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">⚠️ ${defQty}× in Werkstatt / Defekt</div>` : ''}
+          ${item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="text-xs text-indigo-600 hover:underline font-semibold">+ Prüfung</button></div>` : ''}
+          ${detailsHtml}
+          ${item.notes ? `<p class="mt-2 text-xs text-slate-500 italic">${esc(item.notes)}</p>` : ''}
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+          <button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt melden</button>
+          <div class="flex gap-2">
+            <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
+            <button onclick="deleteItem('${item.id}')" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================================
+// TAB 2: PACKLISTEN & RÜCKNAHME RENDERN
+// ============================================================================
+function renderJobs() {
+  const container = document.getElementById('jobs-container');
+  const filteredJobs = state.jobs.filter(j => state.selectedTenant === 'ALL' || j.tenant_id === state.selectedTenant);
+
+  if (filteredJobs.length === 0) {
+    container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
+      Noch keine Jobs / Packlisten vorhanden. Klicke auf <b>„+ Neue Packliste / Job“</b> (z. B. für BGHW).
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = filteredJobs.map(job => {
+    const bookings = state.jobBookings.filter(b => b.job_id === job.id);
+    const lines = state.packlistLines.filter(l => l.job_id === job.id);
+    const packedCount = lines.filter(l => l.packed).length;
+
+    const statusBadge = job.status === 'packing'
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Packen im Lager (${packedCount}/${lines.length})</span>`
+      : job.status === 'out'
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden</span>`
+      : `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
+
+    return `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
+              <h3 class="font-bold text-base text-slate-900">${esc(job.title)}</h3>
+              ${job.event_date ? `<span class="text-xs text-slate-500">📅 ${job.event_date}</span>` : ''}
+              ${statusBadge}
+            </div>
+            <div class="text-xs text-slate-600 mt-1">
+              <b>Gebucht:</b> ${bookings.map(b => `${b.qty}× ${esc(b.item_name)}${b.selected_width ? ` (${b.selected_width} m Breite)` : ''}`).join(' • ')}
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">Laden fertig → Unterwegs</button>` : ''}
+            ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">Rücknahme abschließen</button>` : ''}
+            <button onclick="deleteJob('${job.id}')" class="px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-600">Löschen</button>
+          </div>
+        </div>
+
+        <!-- Dynamische Packliste & Rücknahme-Zeilen -->
+        <div class="divide-y divide-slate-100">
+          ${lines.map(line => `
+            <div class="p-3.5 flex flex-wrap items-center justify-between gap-3 ${line.packed ? 'bg-emerald-50/40' : ''}">
+              <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-[220px]">
+                <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="togglePackLine('${line.id}', this.checked)"
+                       class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <div>
+                  <div class="font-semibold text-sm ${line.packed ? 'line-through text-slate-400' : 'text-slate-900'}">
+                    ${line.qty_required}× ${esc(line.line_name)}
+                  </div>
+                  <div class="text-[11px] text-slate-400">${esc(line.category || '')}</div>
+                </div>
+              </label>
+
+              <div class="flex items-center gap-2">
+                ${line.defective_qty > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-bold">${line.defective_qty}× Defekt gemeldet</span>` : ''}
+                <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
+                        class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold">
+                  📷 Beim Auspacken: Defekt melden
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================================
+// TAB 3: WERKSTATT & ARCHIV RENDERN
+// ============================================================================
+function setWorkshopFilter(f) {
+  state.workshopFilter = f;
+  document.querySelectorAll('.ws-filter-btn').forEach(btn => {
+    const active = btn.id === `ws-filter-${f}`;
+    btn.className = `ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+  });
+  renderWorkshop();
+}
+
+function renderWorkshop() {
+  const openTickets = state.workshopTickets.filter(t => t.status !== 'archived' && (state.selectedTenant === 'ALL' || t.tenant_id === state.selectedTenant));
+  document.getElementById('workshop-badge').textContent = openTickets.length;
+
+  let list = state.workshopTickets.filter(t => state.selectedTenant === 'ALL' || t.tenant_id === state.selectedTenant);
+  if (state.workshopFilter === 'OPEN_ALL') {
+    list = list.filter(t => t.status !== 'archived');
+  } else if (state.workshopFilter === 'ARCHIVED') {
+    list = list.filter(t => t.status === 'archived');
+  } else {
+    list = list.filter(t => t.status !== 'archived' && t.location === state.workshopFilter);
+  }
+
+  const container = document.getElementById('workshop-list');
+  if (list.length === 0) {
+    container.innerHTML = `<div class="col-span-full bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
+      Keine Einträge in dieser Werkstatt-Ansicht.
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(t => {
+    const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
+      : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
+
+    let photoHtml = '';
+    if (t.photo_url && !t.photo_deleted) {
+      photoHtml = `<a href="${t.photo_url}" target="_blank" class="block mt-2">
+        <img src="${t.photo_url}" alt="Schadensfoto" class="w-full h-44 object-cover rounded-lg border border-slate-200" />
+      </a>`;
+    } else if (t.photo_deleted) {
+      photoHtml = `<div class="mt-2 p-2.5 rounded-lg bg-slate-100 text-[11px] text-slate-500 italic">Foto nach 6 Monaten Archivierung automatisch gelöscht.</div>`;
+    }
+
+    return `
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
+          </div>
+          <h3 class="font-bold text-base text-slate-900 mt-2">${t.qty}× ${esc(t.item_name)}</h3>
+          <p class="text-sm text-slate-700 mt-1 bg-rose-50/70 p-2.5 rounded-lg border border-rose-100">${esc(t.description)}</p>
+          ${photoHtml}
+          <div class="text-[11px] text-slate-400 mt-2">
+            Gemeldet von <b>${esc(t.reported_by || 'Team')}</b> am ${new Date(t.reported_at).toLocaleDateString('de-DE')}
+          </div>
+          ${t.status === 'archived' ? `
+            <div class="mt-2 p-2 rounded bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+              ✅ Repariert am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}
+              ${t.repair_notes ? `<br/>Notiz: ${esc(t.repair_notes)}` : ''}
+              ${t.delete_photo_after && !t.photo_deleted ? `<br/><span class="text-[11px] text-emerald-700">Foto-Löschung am: ${new Date(t.delete_photo_after).toLocaleDateString('de-DE')}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-xs">
+          <button onclick="shareTicket('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+            📤 Mit Kollegen teilen
+          </button>
+          ${t.status !== 'archived' ? `
+            <button onclick="openRepairModal('${t.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              ✅ Repariert → Zurück ins Lager
+            </button>
+          ` : `
+            <button onclick="deleteTicket('${t.id}')" class="px-2.5 py-1.5 text-slate-400 hover:text-red-600">Eintrag entfernen</button>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function shareTicket(ticketId) {
+  const t = state.workshopTickets.find(x => x.id === ticketId);
+  if (!t) return;
+  const text = `🔧 Werkstatt-Info (${tenantName(t.tenant_id)})\nArtikel: ${t.qty}× ${t.item_name}\nOrt/Zuständig: ${t.location}\nDefekt: ${t.description}${t.photo_url && !t.photo_deleted ? `\nFoto: ${t.photo_url}` : ''}`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Defekt: ${t.item_name}`, text });
+      return;
+    } catch (_) {}
+  }
+  await navigator.clipboard.writeText(text);
+  alert('Defekt-Info inkl. Foto-Link in die Zwischenablage kopiert! Jetzt einfach in WhatsApp / Chat einfügen.');
+}
+
+// ============================================================================
+// TAB 4: DGUV V3 / BENNING ST 755+ RENDERN
+// ============================================================================
+function renderDguv() {
+  const container = document.getElementById('dguv-list');
+  const rows = state.dguvTests.map(test => {
+    const item = state.items.find(i => i.id === test.item_id);
+    return { ...test, item };
+  }).filter(r => r.item && (state.selectedTenant === 'ALL' || r.item.tenant_id === state.selectedTenant));
+
+  if (rows.length === 0) {
+    container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">
+      Noch keine DGUV V3 Prüfprotokolle hinterlegt. Klicke auf <b>„+ Benning-Prüfung / PDF erfassen“</b>.
+    </div>`;
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  container.innerHTML = `
+    <table class="w-full text-left border-collapse text-sm">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+          <th class="p-3">Bestand</th>
+          <th class="p-3">Gerät / Artikel</th>
+          <th class="p-3">Benning-Prüfnr.</th>
+          <th class="p-3">Prüfdatum</th>
+          <th class="p-3">Nächste Prüfung</th>
+          <th class="p-3">Status</th>
+          <th class="p-3">Benning-PDF</th>
+          <th class="p-3"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        ${rows.map(r => {
+          const expired = r.next_test_date && r.next_test_date < today;
+          const badge = r.status === 'failed'
+            ? `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-bold">Nicht bestanden</span>`
+            : expired
+            ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold">Fällig / Abgelaufen</span>`
+            : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">Bestanden</span>`;
+
+          return `
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 font-bold text-indigo-700">${esc(tenantName(r.item.tenant_id))}</td>
+              <td class="p-3 font-semibold">${esc(r.item.name)}</td>
+              <td class="p-3 font-mono font-bold text-slate-800">${esc(r.benning_id)}</td>
+              <td class="p-3">${r.test_date || '-'}</td>
+              <td class="p-3">${r.next_test_date || '-'}</td>
+              <td class="p-3">${badge}</td>
+              <td class="p-3">
+                ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs">📄 PDF öffnen</a>` : '<span class="text-xs text-slate-400">Kein PDF</span>'}
+              </td>
+              <td class="p-3 text-right">
+                <button onclick="deleteDguv('${r.id}')" class="text-slate-400 hover:text-red-600 text-xs">✕</button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ============================================================================
+// TAB 5: INVENTUR-DRUCKLISTE RENDERN
+// ============================================================================
+function renderStocktake() {
+  const selTenant = document.getElementById('stocktake-tenant-select').value || 'ALL';
+  const titleName = selTenant === 'ALL' ? 'Gesamtbestand (Alle Bereiche)' : tenantName(selTenant);
+  const items = state.items.filter(i => selTenant === 'ALL' || i.tenant_id === selTenant);
+
+  document.getElementById('stocktake-print-area').innerHTML = `
+    <div class="flex justify-between items-end border-b-2 border-slate-800 pb-3 mb-4">
+      <div>
+        <h1 class="text-xl font-extrabold uppercase tracking-wide">Inventur- & Zählliste: ${esc(titleName)}</h1>
+        <p class="text-xs text-slate-600 mt-0.5">Erstellt am ${new Date().toLocaleDateString('de-DE')} • Gezählt von: _________________________</p>
+      </div>
+      <div class="text-right text-xs text-slate-500">Positionen: ${items.length}</div>
+    </div>
+
+    <table class="w-full text-left border-collapse text-xs print-table">
+      <thead>
+        <tr class="bg-slate-100 border-b border-slate-400">
+          ${selTenant === 'ALL' ? '<th class="p-2 border border-slate-300">Bereich</th>' : ''}
+          <th class="p-2 border border-slate-300">Kategorie</th>
+          <th class="p-2 border border-slate-300">Artikel / System</th>
+          <th class="p-2 border border-slate-300">Lagerplatz</th>
+          <th class="p-2 border border-slate-300 text-center">Soll Gesamt</th>
+          <th class="p-2 border border-slate-300 text-center">In Werkstatt</th>
+          <th class="p-2 border border-slate-300 text-center">Im Regal</th>
+          <th class="p-2 border border-slate-300 w-24 text-center">Ist Gezählt</th>
+          <th class="p-2 border border-slate-300 w-40">Bemerkung / DGUV</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(i => {
+          const def = getDefectiveQtyForItem(i.id);
+          const avail = Math.max(0, (i.total_qty || 0) - def);
+          const dguvCount = state.dguvTests.filter(d => d.item_id === i.id).length;
+          return `
+            <tr>
+              ${selTenant === 'ALL' ? `<td class="p-2 border border-slate-300 font-bold">${esc(tenantName(i.tenant_id))}</td>` : ''}
+              <td class="p-2 border border-slate-300">${esc(i.category)}</td>
+              <td class="p-2 border border-slate-300 font-semibold">${esc(i.name)}</td>
+              <td class="p-2 border border-slate-300">${esc(i.storage_location || '-')}</td>
+              <td class="p-2 border border-slate-300 text-center font-bold">${i.total_qty}</td>
+              <td class="p-2 border border-slate-300 text-center">${def > 0 ? def : '-'}</td>
+              <td class="p-2 border border-slate-300 text-center font-bold">${avail}</td>
+              <td class="p-2 border border-slate-300"></td>
+              <td class="p-2 border border-slate-300 text-[10px] text-slate-500">${i.is_dguv ? `DGUV (${dguvCount} Prot.)` : ''}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ============================================================================
+// MODALS & CRUD-AKTIONEN
+// ============================================================================
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-backdrop').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.add('hidden');
+}
+
+// --- Modal: Neuer Bestandsbereich ---
+function openNewTenantModal() {
+  openModal(`
+    <h3 class="text-lg font-bold mb-3">Neuen Bestandsbereich anlegen</h3>
+    <form onsubmit="saveTenant(event)" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Bereichsname (z. B. BGHW, FES, Eigenbestand)</label>
+        <input id="new-tenant-name" required class="w-full px-3 py-2 border rounded-lg text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">Beschreibung (optional)</label>
+        <input id="new-tenant-desc" class="w-full px-3 py-2 border rounded-lg text-sm" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold">Speichern</button>
+      </div>
+    </form>
+  `);
+}
+async function saveTenant(e) {
+  e.preventDefault();
+  const name = document.getElementById('new-tenant-name').value.trim();
+  const description = document.getElementById('new-tenant-desc').value.trim();
+  const { error } = await sb.from('tenants').insert({ name, description });
+  if (error) return alert(error.message);
+  closeModal();
+  await loadAllData();
+}
+
+// --- Modal: Artikel anlegen / bearbeiten ---
+function openItemModal(itemId = null) {
+  const item = itemId ? state.items.find(i => i.id === itemId) : null;
+  const comps = item ? state.bundleComponents.filter(c => c.parent_item_id === item.id) : [];
+  const cfg = (item && item.dimension_config) || { min_width: 2, max_width: 5, step_width: 1, base_item: 'Grundkoffer (2m x 2,48m)', ext_item: 'Zusatzkissen' };
+  const defaultTenant = item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || ''));
+
+  openModal(`
+    <h3 class="text-lg font-bold mb-4">${item ? 'Artikel bearbeiten' : 'Neuen Artikel erfassen'}</h3>
+    <form onsubmit="saveItem(event, '${itemId || ''}')" class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
+          <select id="it-tenant" class="w-full px-3 py-2 border rounded-lg bg-white">
+            ${state.tenants.map(t => `<option value="${t.id}" ${t.id === defaultTenant ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Kategorie</label>
+          <input id="it-cat" required value="${esc(item?.category || 'Allgemein')}" placeholder="z. B. Strom, LED, Audio" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold mb-1">Artikelbezeichnung</label>
+          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. Big LED UP, Lärmpyramide, Stromkabel 10m" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Gesamtbestand</label>
+          <input id="it-qty" type="number" min="0" required value="${item ? item.total_qty : 1}" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Lagerplatz (optional)</label>
+          <input id="it-loc" value="${esc(item?.storage_location || '')}" placeholder="z. B. Regal B2 / Gitterbox 1" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Pack-Logik / Artikeltyp</label>
+          <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2 border rounded-lg bg-white">
+            <option value="single" ${(!item || item.item_type === 'single') ? 'selected' : ''}>Einzelartikel (Stückzahl)</option>
+            <option value="bundle" ${item?.item_type === 'bundle' ? 'selected' : ''}>Komponenten-Set (z. B. Vorschaumonitor)</option>
+            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System nach Breite (z. B. Big LED UP)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bundle-Felder -->
+      <div id="bundle-fields" class="${item?.item_type === 'bundle' ? '' : 'hidden'} p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
+        <div class="text-xs font-bold text-purple-900">Automatische Set-Komponenten (eine pro Zeile, z. B. "1x Schrägsteller"):</div>
+        <textarea id="it-bundle-text" rows="4" placeholder="1x Bildschirm&#10;1x Schrägsteller&#10;1x HDMI-Kabel&#10;1x Verstromung" class="w-full px-3 py-2 border rounded-lg text-xs">${comps.map(c => `${c.qty_per_unit}x ${c.component_name}`).join('\n')}</textarea>
+      </div>
+
+      <!-- Maß-System-Felder -->
+      <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+        <div class="text-xs font-bold text-blue-900">Maß- & Erweiterungsregel (z. B. Big LED UP):</div>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.5" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.5" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Schrittweite (m)</label><input id="dim-step" type="number" step="0.5" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div><label>Basiskomponente (bei Grundbreite)</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Erweiterung je Schritt</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 pt-1 cursor-pointer">
+        <input id="it-dguv" type="checkbox" ${item?.is_dguv ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600" />
+        <span class="text-xs font-semibold text-slate-700">Elektrisches Betriebsmittel (DGUV V3 / Benning 755+ Prüfung erforderlich)</span>
+      </label>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Notizen (optional)</label>
+        <input id="it-notes" value="${esc(item?.notes || '')}" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Speichern</button>
+      </div>
+    </form>
+  `);
+}
+
+function toggleItemTypeFields() {
+  const t = document.getElementById('it-type').value;
+  document.getElementById('bundle-fields').classList.toggle('hidden', t !== 'bundle');
+  document.getElementById('dimension-fields').classList.toggle('hidden', t !== 'dimension');
+}
+
+async function saveItem(e, itemId) {
+  e.preventDefault();
+  const item_type = document.getElementById('it-type').value;
+  const dimension_config = item_type === 'dimension' ? {
+    min_width: parseFloat(document.getElementById('dim-min').value) || 2,
+    max_width: parseFloat(document.getElementById('dim-max').value) || 5,
+    step_width: parseFloat(document.getElementById('dim-step').value) || 1,
+    base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer',
+    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen'
+  } : null;
+
+  const payload = {
+    tenant_id: document.getElementById('it-tenant').value,
+    category: document.getElementById('it-cat').value.trim(),
+    name: document.getElementById('it-name').value.trim(),
+    total_qty: parseInt(document.getElementById('it-qty').value, 10) || 0,
+    storage_location: document.getElementById('it-loc').value.trim(),
+    item_type,
+    dimension_config,
+    is_dguv: document.getElementById('it-dguv').checked,
+    notes: document.getElementById('it-notes').value.trim()
+  };
+
+  let savedId = itemId;
+  if (itemId) {
+    const { error } = await sb.from('items').update(payload).eq('id', itemId);
+    if (error) return alert(error.message);
+  } else {
+    const { data, error } = await sb.from('items').insert(payload).select().single();
+    if (error) return alert(error.message);
+    savedId = data.id;
+  }
+
+  // Bundle-Komponenten aktualisieren
+  await sb.from('item_bundle_components').delete().eq('parent_item_id', savedId);
+  if (item_type === 'bundle') {
+    const rawLines = document.getElementById('it-bundle-text').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const rows = rawLines.map(line => {
+      const m = line.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+      return m
+        ? { parent_item_id: savedId, qty_per_unit: parseInt(m[1], 10), component_name: m[2].trim() }
+        : { parent_item_id: savedId, qty_per_unit: 1, component_name: line };
+    });
+    if (rows.length > 0) await sb.from('item_bundle_components').insert(rows);
+  }
+
+  closeModal();
+  await loadAllData();
+}
+
+async function deleteItem(id) {
+  if (!confirm('Diesen Artikel wirklich löschen?')) return;
+  await sb.from('items').delete().eq('id', id);
+  await loadAllData();
+}
+
+// --- Modal: Neue Packliste / Job mit dynamischer Komponenten-Berechnung ---
+let draftBookings = [];
+function openNewJobModal() {
+  draftBookings = [];
+  const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
+  openModal(`
+    <h3 class="text-lg font-bold mb-3">Neue Packliste / Einsatz erstellen</h3>
+    <form onsubmit="saveJob(event)" class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
+          <select id="job-tenant" onchange="refreshJobItemPicker()" class="w-full px-3 py-2 border rounded-lg bg-white">
+            ${state.tenants.map(t => `<option value="${t.id}" ${bghw && t.id === bghw.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Einsatzdatum (optional)</label>
+          <input id="job-date" type="date" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Job- / Veranstaltungsname</label>
+        <input id="job-title" required placeholder="z. B. Messe BGHW Halle 4" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div class="text-xs font-bold text-slate-700">Artikel zur Packliste hinzufügen:</div>
+        <div class="grid grid-cols-12 gap-2">
+          <select id="job-item-select" onchange="onJobItemSelectChange()" class="col-span-6 px-2.5 py-2 border rounded-lg bg-white text-xs"></select>
+          <input id="job-item-qty" type="number" min="1" value="1" title="Menge" class="col-span-2 px-2 py-2 border rounded-lg text-xs text-center" />
+          <div id="job-width-wrap" class="col-span-2 hidden">
+            <input id="job-item-width" type="number" step="0.5" value="3" title="Breite in m" class="w-full px-2 py-2 border border-blue-400 rounded-lg text-xs text-center bg-blue-50 font-bold" />
+          </div>
+          <button type="button" onclick="addDraftBooking()" class="col-span-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">+ Dazu</button>
+        </div>
+        <div id="job-width-hint" class="hidden text-[11px] text-blue-700 font-semibold">Breite in Metern angeben (z. B. 3 für 3 m → berechnet automatisch Grundkoffer + Erweiterungen).</div>
+        <div id="draft-bookings-list" class="space-y-1 pt-2"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Packliste generieren</button>
+      </div>
+    </form>
+  `);
+  refreshJobItemPicker();
+}
+
+function refreshJobItemPicker() {
+  const tid = document.getElementById('job-tenant').value;
+  const items = state.items.filter(i => i.tenant_id === tid);
+  const sel = document.getElementById('job-item-select');
+  sel.innerHTML = items.map(i => `<option value="${i.id}">${esc(i.name)} (${i.category})</option>`).join('');
+  onJobItemSelectChange();
+}
+
+function onJobItemSelectChange() {
+  const itemId = document.getElementById('job-item-select').value;
+  const item = state.items.find(i => i.id === itemId);
+  const isDim = item && item.item_type === 'dimension';
+  document.getElementById('job-width-wrap').classList.toggle('hidden', !isDim);
+  document.getElementById('job-width-hint').classList.toggle('hidden', !isDim);
+  if (isDim && item.dimension_config) {
+    document.getElementById('job-item-width').value = item.dimension_config.min_width + item.dimension_config.step_width;
+  }
+}
+
+function addDraftBooking() {
+  const itemId = document.getElementById('job-item-select').value;
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  const qty = parseInt(document.getElementById('job-item-qty').value, 10) || 1;
+  const width = item.item_type === 'dimension' ? parseFloat(document.getElementById('job-item-width').value) : null;
+  draftBookings.push({ item, qty, width });
+  renderDraftBookings();
+}
+
+function renderDraftBookings() {
+  const el = document.getElementById('draft-bookings-list');
+  el.innerHTML = draftBookings.map((b, idx) => `
+    <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border text-xs">
+      <span><b>${b.qty}×</b> ${esc(b.item.name)} ${b.width ? `<span class="text-blue-700 font-bold">(${b.width} m Breite)</span>` : ''}</span>
+      <button type="button" onclick="draftBookings.splice(${idx}, 1); renderDraftBookings();" class="text-red-500 font-bold">✕</button>
+    </div>
+  `).join('');
+}
+
+async function saveJob(e) {
+  e.preventDefault();
+  if (draftBookings.length === 0) return alert('Bitte mindestens einen Artikel zur Packliste hinzufügen.');
+
+  const tenant_id = document.getElementById('job-tenant').value;
+  const title = document.getElementById('job-title').value.trim();
+  const event_date = document.getElementById('job-date').value || null;
+
+  const { data: job, error } = await sb.from('jobs').insert({ tenant_id, title, event_date, status: 'packing' }).select().single();
+  if (error) return alert(error.message);
+
+  // Buchungen speichern & dynamische Packlisten-Zeilen berechnen
+  const bookingRows = draftBookings.map(b => ({
+    job_id: job.id,
+    item_id: b.item.id,
+    item_name: b.item.name,
+    qty: b.qty,
+    selected_width: b.width
+  }));
+  await sb.from('job_bookings').insert(bookingRows);
+
+  const packLines = [];
+  for (const b of draftBookings) {
+    if (b.item.item_type === 'dimension' && b.item.dimension_config) {
+      const cfg = b.item.dimension_config;
+      const extraMeters = Math.max(0, (b.width || cfg.min_width) - cfg.min_width);
+      const extCount = Math.ceil(extraMeters / (cfg.step_width || 1));
+      packLines.push({
+        job_id: job.id,
+        source_item_id: b.item.id,
+        line_name: `${cfg.base_item} (${b.item.name} Basis)`,
+        category: b.item.category,
+        qty_required: b.qty
+      });
+      if (extCount > 0) {
+        packLines.push({
+          job_id: job.id,
+          source_item_id: b.item.id,
+          line_name: `${cfg.ext_item} (${b.item.name} Erweiterung auf ${b.width} m)`,
+          category: b.item.category,
+          qty_required: b.qty * extCount
+        });
+      }
+    } else if (b.item.item_type === 'bundle') {
+      const comps = state.bundleComponents.filter(c => c.parent_item_id === b.item.id);
+      if (comps.length > 0) {
+        comps.forEach(c => {
+          packLines.push({
+            job_id: job.id,
+            source_item_id: b.item.id,
+            line_name: `${c.component_name} (für ${b.item.name})`,
+            category: b.item.category,
+            qty_required: b.qty * c.qty_per_unit
+          });
+        });
+      } else {
+        packLines.push({ job_id: job.id, source_item_id: b.item.id, line_name: b.item.name, category: b.item.category, qty_required: b.qty });
+      }
+    } else {
+      packLines.push({ job_id: job.id, source_item_id: b.item.id, line_name: b.item.name, category: b.item.category, qty_required: b.qty });
+    }
+  }
+
+  await sb.from('job_packlist_lines').insert(packLines);
+  closeModal();
+  await loadAllData();
+}
+
+async function togglePackLine(lineId, packed) {
+  await sb.from('job_packlist_lines').update({ packed }).eq('id', lineId);
+  await loadAllData();
+}
+
+async function setJobStatus(jobId, status) {
+  await sb.from('jobs').update({ status }).eq('id', jobId);
+  await loadAllData();
+}
+
+async function deleteJob(jobId) {
+  if (!confirm('Diesen Job / diese Packliste löschen?')) return;
+  await sb.from('jobs').delete().eq('id', jobId);
+  await loadAllData();
+}
+
+// --- Modal: Defekt melden + Handy-Foto-Upload (komprimiert) ---
+function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobId = '', packLineId = '') {
+  const item = itemId ? state.items.find(i => i.id === itemId) : null;
+  const defaultTenant = presetTenantId || (item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || '')));
+
+  openModal(`
+    <h3 class="text-lg font-bold text-rose-700 mb-3">🔧 Defekt melden & in Werkstatt einbuchen</h3>
+    <form onsubmit="saveDefect(event, '${itemId || ''}', '${jobId || ''}', '${packLineId || ''}')" class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
+          <select id="def-tenant" class="w-full px-3 py-2 border rounded-lg bg-white">
+            ${state.tenants.map(t => `<option value="${t.id}" ${t.id === defaultTenant ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Zielort / Zuständig</label>
+          <select id="def-location" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold">
+            <option value="Lager">Lager</option>
+            <option value="Büro G7">Büro G7 (Patrick / Markus)</option>
+            <option value="Daniel Werkstatt">Daniel Werkstatt</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-3">
+          <label class="block text-xs font-semibold mb-1">Betroffener Artikel / Komponente</label>
+          <input id="def-name" required value="${esc(presetName || item?.name || '')}" placeholder="z. B. HDMI-Kabel (Vorschaumonitor)" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Menge</label>
+          <input id="def-qty" type="number" min="1" value="1" class="w-full px-3 py-2 border rounded-lg text-center" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Was ist kaputt / auffällig?</label>
+        <textarea id="def-desc" required rows="2" placeholder="z. B. Stecker verbogen, mit rotem Tape markiert" class="w-full px-3 py-2 border rounded-lg"></textarea>
+      </div>
+
+      <div class="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
+        <label class="block text-xs font-bold text-slate-700 mb-1">📷 Foto aufnehmen oder auswählen (optional)</label>
+        <input id="def-photo" type="file" accept="image/*" capture="environment" class="text-xs w-full" />
+        <p class="text-[11px] text-slate-400 mt-1">Wird automatisch komprimiert hochgeladen und nach Reparatur 6 Monate archiviert.</p>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" id="def-submit-btn" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold">Defekt speichern</button>
+      </div>
+    </form>
+  `);
+}
+
+// Clientseitige Bild-Komprimierung (spart Speicher & lädt im Lager schnell hoch)
+function compressImage(file, maxWidth = 1280, quality = 0.78) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', quality);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveDefect(e, itemId, jobId, packLineId) {
+  e.preventDefault();
+  const btn = document.getElementById('def-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Speichere...';
+
+  let photo_path = null;
+  let photo_url = null;
+  const fileInput = document.getElementById('def-photo');
+
+  if (fileInput.files && fileInput.files[0]) {
+    const compressed = await compressImage(fileInput.files[0]);
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error: upErr } = await sb.storage.from('defect-photos').upload(fileName, compressed, { contentType: 'image/jpeg' });
+    if (upErr) {
+      btn.disabled = false;
+      btn.textContent = 'Defekt speichern';
+      return alert('Foto-Upload fehlgeschlagen: ' + upErr.message);
+    }
+    photo_path = fileName;
+    const { data: pub } = sb.storage.from('defect-photos').getPublicUrl(fileName);
+    photo_url = pub.publicUrl;
+  }
+
+  const qty = parseInt(document.getElementById('def-qty').value, 10) || 1;
+  const reporter = currentUser ? currentUser.email.split('@')[0] : 'Team';
+
+  const { error } = await sb.from('workshop_tickets').insert({
+    tenant_id: document.getElementById('def-tenant').value,
+    item_id: itemId || null,
+    job_id: jobId || null,
+    item_name: document.getElementById('def-name').value.trim(),
+    qty,
+    location: document.getElementById('def-location').value,
+    description: document.getElementById('def-desc').value.trim(),
+    photo_path,
+    photo_url,
+    reported_by: reporter.charAt(0).toUpperCase() + reporter.slice(1)
+  });
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Defekt speichern';
+    return alert(error.message);
+  }
+
+  if (packLineId) {
+    const line = state.packlistLines.find(l => l.id === packLineId);
+    if (line) {
+      await sb.from('job_packlist_lines').update({ defective_qty: (line.defective_qty || 0) + qty }).eq('id', packLineId);
+    }
+  }
+
+  closeModal();
+  await loadAllData();
+}
+
+// --- Modal: Repariert -> Zurück ins Lager + 6-Monate-Foto-Timer ---
+function openRepairModal(ticketId) {
+  openModal(`
+    <h3 class="text-lg font-bold text-emerald-700 mb-3">✅ Reparatur abschließen</h3>
+    <p class="text-xs text-slate-600 mb-3">Der Artikel geht wieder als verfügbar zurück ins Lager. Ein vorhandenes Foto wird noch <b>6 Monate archiviert</b> und danach automatisch gelöscht.</p>
+    <form onsubmit="completeRepair(event, '${ticketId}')" class="space-y-3 text-sm">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Reparatur-Notiz (optional)</label>
+        <input id="rep-notes" placeholder="z. B. Neuen Stecker montiert & getestet" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2 bg-emerald-600 text-white rounded-lg font-bold">Zurück in den Bestand</button>
+      </div>
+    </form>
+  `);
+}
+
+async function completeRepair(e, ticketId) {
+  e.preventDefault();
+  const now = new Date();
+  const sixMonthsLater = new Date(now);
+  sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+  await sb.from('workshop_tickets').update({
+    status: 'archived',
+    repaired_at: now.toISOString(),
+    delete_photo_after: sixMonthsLater.toISOString(),
+    repair_notes: document.getElementById('rep-notes').value.trim()
+  }).eq('id', ticketId);
+
+  closeModal();
+  await loadAllData();
+}
+
+async function deleteTicket(ticketId) {
+  if (!confirm('Archiv-Eintrag endgültig löschen?')) return;
+  const t = state.workshopTickets.find(x => x.id === ticketId);
+  if (t && t.photo_path && !t.photo_deleted) {
+    await sb.storage.from('defect-photos').remove([t.photo_path]);
+  }
+  await sb.from('workshop_tickets').delete().eq('id', ticketId);
+  await loadAllData();
+}
+
+// --- Modal: DGUV V3 / Benning ST 755+ Prüfung + PDF-Upload ---
+function openDguvModal(presetItemId = '') {
+  const elecItems = state.items.filter(i => i.is_dguv);
+  const pool = elecItems.length > 0 ? elecItems : state.items;
+  if (pool.length === 0) return alert('Bitte zuerst Artikel im Bestand anlegen.');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const nextYear = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10);
+
+  openModal(`
+    <h3 class="text-lg font-bold mb-3">⚡ DGUV V3 Prüfung (Benning ST 755+) erfassen</h3>
+    <form onsubmit="saveDguv(event)" class="space-y-3 text-sm">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Elektrisches Gerät / Artikel</label>
+        <select id="dg-item" class="w-full px-3 py-2 border rounded-lg bg-white">
+          ${pool.map(i => `<option value="${i.id}" ${i.id === presetItemId ? 'selected' : ''}>[${esc(tenantName(i.tenant_id))}] ${esc(i.name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Benning-Prüfnummer / ID</label>
+          <input id="dg-benning-id" required placeholder="z. B. 0042 oder NT-01" class="w-full px-3 py-2 border rounded-lg font-mono" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Prüfergebnis</label>
+          <select id="dg-status" class="w-full px-3 py-2 border rounded-lg bg-white">
+            <option value="passed">Bestanden (OK)</option>
+            <option value="failed">Nicht bestanden (Mangel)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Prüfdatum</label>
+          <input id="dg-date" type="date" value="${today}" required class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Nächste Prüfung fällig</label>
+          <input id="dg-next" type="date" value="${nextYear}" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div class="p-3 bg-indigo-50 border border-dashed border-indigo-300 rounded-xl">
+        <label class="block text-xs font-bold text-indigo-900 mb-1">📄 Benning 755+ Prüfprotokoll (PDF)</label>
+        <input id="dg-pdf" type="file" accept="application/pdf" class="text-xs w-full" />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" id="dg-submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Prüfung speichern</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveDguv(e) {
+  e.preventDefault();
+  const btn = document.getElementById('dg-submit');
+  btn.disabled = true;
+  btn.textContent = 'Lade hoch...';
+
+  let pdf_path = null;
+  let pdf_url = null;
+  const pdfFile = document.getElementById('dg-pdf').files[0];
+
+  if (pdfFile) {
+    const cleanName = `${Date.now()}_${pdfFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('dguv-pdfs').upload(cleanName, pdfFile, { contentType: 'application/pdf' });
+    if (upErr) {
+      btn.disabled = false;
+      btn.textContent = 'Prüfung speichern';
+      return alert('PDF-Upload fehlgeschlagen: ' + upErr.message);
+    }
+    pdf_path = cleanName;
+    const { data: pub } = sb.storage.from('dguv-pdfs').getPublicUrl(cleanName);
+    pdf_url = pub.publicUrl;
+  }
+
+  const item_id = document.getElementById('dg-item').value;
+  await sb.from('items').update({ is_dguv: true }).eq('id', item_id);
+
+  const { error } = await sb.from('dguv_tests').insert({
+    item_id,
+    benning_id: document.getElementById('dg-benning-id').value.trim(),
+    status: document.getElementById('dg-status').value,
+    test_date: document.getElementById('dg-date').value,
+    next_test_date: document.getElementById('dg-next').value || null,
+    pdf_path,
+    pdf_url
+  });
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Prüfung speichern';
+    return alert(error.message);
+  }
+
+  closeModal();
+  await loadAllData();
+}
+
+async function deleteDguv(id) {
+  if (!confirm('DGUV-Eintrag löschen?')) return;
+  const d = state.dguvTests.find(x => x.id === id);
+  if (d && d.pdf_path) await sb.storage.from('dguv-pdfs').remove([d.pdf_path]);
+  await sb.from('dguv_tests').delete().eq('id', id);
+  await loadAllData();
+}
+
+// ============================================================================
+// BEISPIELDATEN LADEN (ZUM SOFORTIGEN TESTEN VON BIG LED UP & CO.)
+// ============================================================================
+async function seedExampleData() {
+  const bghw = state.tenants.find(t => t.name === 'BGHW') || state.tenants[0];
+  const fes = state.tenants.find(t => t.name === 'FES') || bghw;
+  if (!bghw) return;
+
+  await sb.from('items').insert([
+    {
+      tenant_id: bghw.id,
+      name: 'Big LED UP',
+      category: 'LED-Systeme',
+      storage_location: 'Halle 1 / Tor 2',
+      item_type: 'dimension',
+      total_qty: 2,
+      is_dguv: true,
+      dimension_config: { min_width: 2, max_width: 5, step_width: 1, base_item: 'Grundkoffer (2m x 2,48m)', ext_item: 'Zusatzkissen' },
+      notes: 'Ab 3m Breite kommt pro Meter 1 Zusatzkissen dazu.'
+    },
+    {
+      tenant_id: bghw.id,
+      name: 'Lärmpyramide',
+      category: 'Messtechnik',
+      storage_location: 'Regal A1',
+      item_type: 'single',
+      total_qty: 4,
+      is_dguv: true
+    },
+    {
+      tenant_id: bghw.id,
+      name: 'Stromkabel Schuko 10m',
+      category: 'Strom & Kabel',
+      storage_location: 'Gitterbox 3',
+      item_type: 'single',
+      total_qty: 25,
+      is_dguv: true
+    },
+    {
+      tenant_id: fes.id,
+      name: 'Netzteil 24V (Ersatz)',
+      category: 'Strom & Kabel',
+      storage_location: 'Regal C4',
+      item_type: 'single',
+      total_qty: 6,
+      is_dguv: true
+    }
+  ]);
+
+  const { data: monitor } = await sb.from('items').insert({
+    tenant_id: bghw.id,
+    name: 'Vorschaumonitor Bühne',
+    category: 'Video & Bühne',
+    storage_location: 'Regal B2',
+    item_type: 'bundle',
+    total_qty: 3,
+    is_dguv: true
+  }).select().single();
+
+  if (monitor) {
+    await sb.from('item_bundle_components').insert([
+      { parent_item_id: monitor.id, component_name: 'Bildschirm', qty_per_unit: 1 },
+      { parent_item_id: monitor.id, component_name: 'Schrägsteller', qty_per_unit: 1 },
+      { parent_item_id: monitor.id, component_name: 'HDMI-Kabel', qty_per_unit: 1 },
+      { parent_item_id: monitor.id, component_name: 'Verstromung', qty_per_unit: 1 }
+    ]);
+  }
+
+  await loadAllData();
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+function escAttr(s) {
+  return String(s ?? '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// Start
+initSupabaseClient();
+if (sb) {
+  sb.auth.getSession().then(({ data }) => {
+    if (data && data.session) onAuthenticated(data.session.user);
+  });
+}
+</script>
+</body>
+</html>
