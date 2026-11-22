@@ -6,23 +6,33 @@
   <title>Lager, Packliste, DGUV V3 & Werkstatt</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS für echten Excel (.xlsx) Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     @media print {
       .no-print { display: none !important; }
       .print-only { display: block !important; }
-      body { background: white !important; color: black !important; font-size: 11pt; }
-      .print-table th, .print-table td { border: 1px solid #333 !important; padding: 6px 8px !important; }
+      body { background: white !important; color: black !important; font-size: 10.5pt; }
+      .print-table th, .print-table td { border: 1px solid #333 !important; padding: 5px 7px !important; }
       .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
+      /* Wenn ein spezieller Druckbereich (Packliste oder Zumietung) aktiv ist */
+      body.custom-print-mode #app-shell,
+      body.custom-print-mode #modal-backdrop { display: none !important; }
+      body.custom-print-mode #dedicated-print-area { display: block !important; }
     }
     .print-only { display: none; }
+    #dedicated-print-area { display: none; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
 
+  <!-- Spezieller DIN-A4 Druckbereich für Packliste oder Zumietungs-Abholschein -->
+  <div id="dedicated-print-area" class="p-4 max-w-4xl mx-auto"></div>
+
   <!-- ===================================================================== -->
   <!-- 1. LOGIN SCREEN                                                       -->
   <!-- ===================================================================== -->
-  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 no-print">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border border-slate-200">
       <div class="flex items-center gap-3 mb-6">
         <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow">LW</div>
@@ -32,20 +42,18 @@
         </div>
       </div>
 
-      <!-- Optionaler Config-Bereich -->
       <div id="config-box" class="hidden mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
         <div class="flex justify-between items-center mb-2">
           <span class="font-semibold text-amber-900">Supabase-Verbindung</span>
           <button type="button" onclick="document.getElementById('config-box').classList.add('hidden')" class="text-xs text-amber-700 underline">Schließen</button>
         </div>
-        <div id="config-fields" class="space-y-2.5">
+        <div class="space-y-2.5">
           <input id="cfg-url" type="url" placeholder="https://xxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
           <input id="cfg-key" type="text" placeholder="sb_publishable_..." class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
           <button type="button" onclick="saveConfig()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Überschreiben & speichern</button>
         </div>
       </div>
 
-      <!-- Login Form -->
       <form onsubmit="handleLogin(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Benutzername</label>
@@ -103,7 +111,7 @@
 
       <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-slate-800 text-sm">
         <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-indigo-400 text-white whitespace-nowrap">1. Bestand & Artikel</button>
-        <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Rücknahme</button>
+        <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Zumietung</button>
         <button onclick="switchTab('workshop')" id="tab-btn-workshop" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
           3. Werkstatt <span id="workshop-badge" class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-500 text-slate-900 font-bold">0</span>
         </button>
@@ -114,7 +122,7 @@
 
     <main class="max-w-7xl mx-auto p-4 md:p-6">
       <!-- ================================================================= -->
-      <!-- TAB 1: BESTAND & ARTIKEL (MIT LISTEN-/KACHEL-ANSICHT & SORTIERUNG)-->
+      <!-- TAB 1: BESTAND & ARTIKEL                                          -->
       <!-- ================================================================= -->
       <section id="view-inventory" class="space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
@@ -144,7 +152,6 @@
             </div>
           </div>
 
-          <!-- Sortier- & Ansichtsleiste -->
           <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="font-semibold text-slate-500">Sortieren nach:</span>
@@ -162,7 +169,6 @@
               <span id="inv-count-label" class="text-slate-400 ml-1"></span>
             </div>
 
-            <!-- Ansichts-Umschalter Liste / Kacheln -->
             <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50">
               <button type="button" id="view-mode-list" onclick="setInventoryViewMode('list')"
                       class="px-3 py-1.5 font-bold flex items-center gap-1.5 transition">
@@ -176,24 +182,23 @@
           </div>
         </div>
 
-        <!-- Container für Liste oder Kacheln -->
         <div id="inventory-container"></div>
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 2: PACKLISTEN & RÜCKNAHME                                     -->
+      <!-- TAB 2: PACKLISTEN, DISPO, DRUCK, EXCEL & ZUMIETUNG                -->
       <!-- ================================================================= -->
       <section id="view-jobs" class="hidden space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
-            <h2 class="font-bold text-lg text-slate-900">Einsätze, Dynamische Packlisten & Rücknahme</h2>
-            <p class="text-xs text-slate-500">Standard-Bestand für Packlisten: BGHW (andere Bereiche jederzeit wählbar).</p>
+            <h2 class="font-bold text-lg text-slate-900">Einsätze, Packlisten, Abholung & Zumietungen</h2>
+            <p class="text-xs text-slate-500">Disponieren, Gepackt & Geladen abhaken, als Excel/Druck ausgeben und Zumietungen separat drucken.</p>
           </div>
           <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
             + Neue Packliste / Job
           </button>
         </div>
-        <div id="jobs-container" class="space-y-4"></div>
+        <div id="jobs-container" class="space-y-6"></div>
       </section>
 
       <!-- ================================================================= -->
@@ -240,7 +245,7 @@
             <label class="text-sm font-semibold">Bestandsbereich für Inventur:</label>
             <select id="stocktake-tenant-select" onchange="renderStocktake()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold bg-white"></select>
           </div>
-          <button onclick="window.print()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow">
+          <button onclick="printGeneralPage()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow">
             🖨️ Inventurliste drucken / als PDF speichern
           </button>
         </div>
@@ -249,8 +254,8 @@
     </main>
   </div>
 
-  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 my-8 border border-slate-200"></div>
+  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
+    <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 my-8 border border-slate-200"></div>
   </div>
 
 <script>
@@ -270,6 +275,7 @@ let state = {
   jobs: [],
   jobBookings: [],
   packlistLines: [],
+  jobSubrentals: [],
   workshopTickets: [],
   selectedTenant: 'ALL',
   workshopFilter: 'OPEN_ALL',
@@ -373,13 +379,9 @@ async function runSixMonthPhotoCleanup() {
 
     if (expired && expired.length > 0) {
       const paths = expired.map(t => t.photo_path).filter(Boolean);
-      if (paths.length > 0) {
-        await sb.storage.from('defect-photos').remove(paths);
-      }
+      if (paths.length > 0) await sb.storage.from('defect-photos').remove(paths);
       const ids = expired.map(t => t.id);
-      await sb.from('workshop_tickets')
-        .update({ photo_deleted: true, photo_url: null })
-        .in('id', ids);
+      await sb.from('workshop_tickets').update({ photo_deleted: true, photo_url: null }).in('id', ids);
     }
   } catch (err) {
     console.warn('Auto-Cleanup Info:', err);
@@ -387,7 +389,7 @@ async function runSixMonthPhotoCleanup() {
 }
 
 async function loadAllData() {
-  const [tRes, iRes, bRes, dRes, jRes, jbRes, plRes, wRes] = await Promise.all([
+  const [tRes, iRes, bRes, dRes, jRes, jbRes, plRes, srRes, wRes] = await Promise.all([
     sb.from('tenants').select('*').order('name'),
     sb.from('items').select('*').order('name'),
     sb.from('item_bundle_components').select('*'),
@@ -395,6 +397,7 @@ async function loadAllData() {
     sb.from('jobs').select('*').order('created_at', { ascending: false }),
     sb.from('job_bookings').select('*'),
     sb.from('job_packlist_lines').select('*').order('category').order('line_name'),
+    sb.from('job_subrentals').select('*').order('created_at'),
     sb.from('workshop_tickets').select('*').order('reported_at', { ascending: false })
   ]);
 
@@ -405,6 +408,7 @@ async function loadAllData() {
   state.jobs = jRes.data || [];
   state.jobBookings = jbRes.data || [];
   state.packlistLines = plRes.data || [];
+  state.jobSubrentals = srRes.data || [];
   state.workshopTickets = wRes.data || [];
 
   populateTenantDropdowns();
@@ -460,7 +464,6 @@ function getDefectiveQtyForItem(itemId) {
     .reduce((sum, w) => sum + (w.qty || 0), 0);
 }
 
-// DGUV Prioritätszahl für Sortierung (0 = Mangel/Fällig, 1 = Kein Protokoll, 2 = OK, 3 = Nicht DGUV-pflichtig)
 function getDguvSortRank(item) {
   if (!item.is_dguv) return 3;
   const tests = state.dguvTests.filter(d => d.item_id === item.id);
@@ -483,7 +486,7 @@ function getDguvStatusBadge(itemId) {
 }
 
 // ============================================================================
-// ANSICHTS-UMSCHALTER & SORTIERUNG FÜR BESTAND
+// TAB 1: BESTAND & ARTIKEL
 // ============================================================================
 function setInventoryViewMode(mode) {
   state.inventoryViewMode = mode;
@@ -555,7 +558,6 @@ function renderInventory() {
     return true;
   });
 
-  // Sortierung anwenden
   const dir = state.sortDir === 'asc' ? 1 : -1;
   filtered.sort((a, b) => {
     switch (state.sortField) {
@@ -590,9 +592,6 @@ function renderInventory() {
     return;
   }
 
-  // =========================================================================
-  // VARIANTE A: KOMPAKTE LISTENANSICHT (TABELLE MIT SORTIERBAREN SPALTEN)
-  // =========================================================================
   if (state.inventoryViewMode === 'list') {
     container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -619,7 +618,7 @@ function renderInventory() {
                 subInfo = `<div class="text-[11px] text-purple-700 mt-0.5">Set: ${comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ')}</div>`;
               } else if (item.item_type === 'dimension' && item.dimension_config) {
                 const cfg = item.dimension_config;
-                subInfo = `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System (${cfg.min_width}–${cfg.max_width} m): Basis 1× ${esc(cfg.base_item)}, je +${cfg.step_width} m → +1× ${esc(cfg.ext_item)}</div>`;
+                subInfo = `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System (${cfg.min_width} m / 2,96 m+): Basis 1× ${esc(cfg.base_item)}, je +${cfg.step_width} m → +1× ${esc(cfg.ext_item)} + Reflektor & Grafik</div>`;
               }
               if (item.notes) {
                 subInfo += `<div class="text-[11px] text-slate-400 italic">${esc(item.notes)}</div>`;
@@ -666,9 +665,6 @@ function renderInventory() {
     return;
   }
 
-  // =========================================================================
-  // VARIANTE B: KACHELANSICHT
-  // =========================================================================
   container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filtered.map(item => {
     const defQty = getDefectiveQtyForItem(item.id);
     const avail = Math.max(0, (item.total_qty || 0) - defQty);
@@ -685,9 +681,9 @@ function renderInventory() {
       </div>`;
     } else if (item.item_type === 'dimension' && item.dimension_config) {
       const cfg = item.dimension_config;
-      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (${cfg.min_width}–${cfg.max_width} m)</span>`;
+      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (${cfg.min_width} m / 2,96 m+)</span>`;
       detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-        <span class="font-semibold">Pack-Regel:</span> Grundmaß ${cfg.min_width} m = <b>1× ${esc(cfg.base_item)}</b>, je +${cfg.step_width} m Breite = <b>+1× ${esc(cfg.ext_item)}</b>.
+        <span class="font-semibold">Pack-Regel:</span> 2 m = <b>1× ${esc(cfg.base_item)}</b>, ab 2,96 m je +1× <b>${esc(cfg.ext_item)}</b> + Reflektor & 1×/2× Grafik.
       </div>`;
     }
 
@@ -727,7 +723,7 @@ function renderInventory() {
 }
 
 // ============================================================================
-// TAB 2: PACKLISTEN & RÜCKNAHME RENDERN
+// TAB 2: PACKLISTEN, DISPO, DRUCK, EXCEL & ZUMIETUNGEN
 // ============================================================================
 function renderJobs() {
   const container = document.getElementById('jobs-container');
@@ -743,63 +739,578 @@ function renderJobs() {
   container.innerHTML = filteredJobs.map(job => {
     const bookings = state.jobBookings.filter(b => b.job_id === job.id);
     const lines = state.packlistLines.filter(l => l.job_id === job.id);
+    const subrentals = state.jobSubrentals.filter(s => s.job_id === job.id);
+
     const packedCount = lines.filter(l => l.packed).length;
+    const loadedCount = lines.filter(l => l.loaded).length;
 
     const statusBadge = job.status === 'packing'
-      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Packen im Lager (${packedCount}/${lines.length})</span>`
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Dispo / Packen (${packedCount}/${lines.length} gepackt • ${loadedCount}/${lines.length} geladen)</span>`
       : job.status === 'out'
-      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden</span>`
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden (${loadedCount}/${lines.length} geladen)</span>`
       : `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
 
     return `
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <!-- Kopfbereich -->
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-start justify-between gap-3">
+          <div class="space-y-1">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
-              <h3 class="font-bold text-base text-slate-900">${esc(job.title)}</h3>
-              ${job.event_date ? `<span class="text-xs text-slate-500">📅 ${job.event_date}</span>` : ''}
+              <h3 class="font-bold text-lg text-slate-900">${esc(job.title)}</h3>
+              ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
               ${statusBadge}
             </div>
-            <div class="text-xs text-slate-600 mt-1">
-              <b>Gebucht:</b> ${bookings.map(b => `${b.qty}× ${esc(b.item_name)}${b.selected_width ? ` (${b.selected_width} m Breite)` : ''}`).join(' • ')}
-            </div>
+            ${bookings.length > 0 ? `
+              <div class="text-xs text-slate-600">
+                <b>Ursprungs-Dispo:</b> ${bookings.map(b => `${b.qty}× ${esc(b.item_name)}${b.selected_width ? ` (${String(b.selected_width).replace('.', ',')} m)` : ''}`).join(' • ')}
+              </div>
+            ` : ''}
           </div>
 
+          <!-- Aktionsleiste: Druck, Excel, Ergänzen, Status -->
           <div class="flex items-center gap-2 flex-wrap">
-            ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">Laden fertig → Unterwegs</button>` : ''}
-            ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">Rücknahme abschließen</button>` : ''}
-            <button onclick="deleteJob('${job.id}')" class="px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-600">Löschen</button>
+            <button onclick="openAddPackLineModal('${job.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold">
+              + Artikel ergänzen
+            </button>
+            <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">
+              🖨️ Packliste drucken
+            </button>
+            <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">
+              📊 Excel (.xlsx)
+            </button>
+            ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
+            ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
+            <button onclick="deleteJob('${job.id}')" title="Packliste löschen" class="px-2 py-1.5 text-xs text-slate-400 hover:text-red-600">✕</button>
           </div>
         </div>
 
-        <div class="divide-y divide-slate-100">
-          ${lines.map(line => `
-            <div class="p-3.5 flex flex-wrap items-center justify-between gap-3 ${line.packed ? 'bg-emerald-50/40' : ''}">
-              <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-[220px]">
-                <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="togglePackLine('${line.id}', this.checked)"
-                       class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                <div>
-                  <div class="font-semibold text-sm ${line.packed ? 'line-through text-slate-400' : 'text-slate-900'}">
-                    ${line.qty_required}× ${esc(line.line_name)}
-                  </div>
-                  <div class="text-[11px] text-slate-400">${esc(line.category || '')}</div>
-                </div>
-              </label>
+        <!-- Allgemeine Anmerkung / Abhol-Vermerk für die Packliste -->
+        <div class="px-4 py-2.5 bg-amber-50/60 border-b border-slate-200 flex flex-wrap items-center gap-2">
+          <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Allgemeine Info:</span>
+          <input type="text" value="${esc(job.pickup_info || '')}"
+                 onchange="updateJobPickupInfo('${job.id}', this.value)"
+                 placeholder="z. B. Abholung am Fr. 10:00 Uhr durch Markus / Transporter Sprinter 2..."
+                 class="flex-1 min-w-[240px] px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none" />
+        </div>
 
-              <div class="flex items-center gap-2">
-                ${line.defective_qty > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-bold">${line.defective_qty}× Defekt gemeldet</span>` : ''}
-                <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
-                        class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold">
-                  📷 Beim Auspacken: Defekt melden
-                </button>
-              </div>
+        <!-- Packlisten-Tabelle -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-100/80 border-b border-slate-200 text-[11px] uppercase text-slate-600">
+                <th class="p-2.5 text-center w-16">Gepackt</th>
+                <th class="p-2.5 text-center w-16">Geladen</th>
+                <th class="p-2.5 text-center w-16">Menge</th>
+                <th class="p-2.5">Artikel / Grafik / Komponente</th>
+                <th class="p-2.5 w-40">Lagerort</th>
+                <th class="p-2.5 w-56">Anmerkung</th>
+                <th class="p-2.5 text-center w-24" title="Soll diese Zeile auf dem DIN-A4 Ausdruck erscheinen?">Im Druck</th>
+                <th class="p-2.5 text-right w-36">Werkstatt / Entfernen</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${lines.map(line => {
+                const rowBg = line.loaded ? 'bg-blue-50/40' : line.packed ? 'bg-emerald-50/40' : '';
+                const showPrint = line.show_on_print !== false;
+                return `
+                  <tr class="${rowBg} hover:bg-slate-50">
+                    <td class="p-2.5 text-center">
+                      <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)"
+                             title="Im Lager gepackt" class="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer" />
+                    </td>
+                    <td class="p-2.5 text-center">
+                      <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)"
+                             title="Im Fahrzeug geladen" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" />
+                    </td>
+                    <td class="p-2.5 text-center font-extrabold text-slate-900">
+                      <input type="number" min="1" value="${line.qty_required}"
+                             onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
+                             class="w-14 px-1.5 py-1 text-center font-bold border border-slate-200 rounded bg-white text-xs" />
+                    </td>
+                    <td class="p-2.5">
+                      <div class="font-semibold ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : 'text-slate-900'}">
+                        ${esc(line.line_name)}
+                      </div>
+                      <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                        ${line.category ? `<span class="text-[11px] text-slate-400">${esc(line.category)}</span>` : ''}
+                        ${!showPrint ? `<span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">Nur Web-Liste (nicht im Ausdruck)</span>` : ''}
+                        ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">${line.defective_qty}× Defekt</span>` : ''}
+                      </div>
+                    </td>
+                    <td class="p-2.5">
+                      <input type="text" value="${esc(line.storage_location || '')}"
+                             onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
+                             placeholder="Regal / Fach..."
+                             class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+                    </td>
+                    <td class="p-2.5">
+                      <input type="text" value="${esc(line.notes || '')}"
+                             onchange="updatePackLineField('${line.id}', 'notes', this.value)"
+                             placeholder="Anmerkung..."
+                             class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+                    </td>
+                    <td class="p-2.5 text-center">
+                      <input type="checkbox" ${showPrint ? 'checked' : ''}
+                             onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)"
+                             title="Haken entfernen, wenn der Artikel nur in der Web-Packliste und nicht auf dem Ausdruck erscheinen soll (z. B. Grafiken)"
+                             class="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer" />
+                    </td>
+                    <td class="p-2.5 text-right whitespace-nowrap">
+                      <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
+                              title="Defekt in Werkstatt melden"
+                              class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold">
+                        🔧 Defekt
+                      </button>
+                      <button onclick="deletePackLine('${line.id}')" title="Zeile aus Packliste löschen" class="ml-1 px-1.5 py-1 text-slate-400 hover:text-red-600 text-xs">✕</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- BEREICH FÜR ZUMIETUNGEN (SEPARAT DRUCKBAR FÜR ABHOLER)          -->
+        <!-- =============================================================== -->
+        <div class="p-4 bg-slate-50/90 border-t border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm text-slate-900">🚐 Zumietungen & Externe Abholungen</span>
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-700">${subrentals.length}</span>
             </div>
-          `).join('')}
+            <div class="flex items-center gap-2">
+              <button onclick="openSubrentalModal('${job.id}')" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
+                + Zumietung eintragen
+              </button>
+              ${subrentals.length > 0 ? `
+                <button onclick="printSubrentals('${job.id}')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm">
+                  🖨️ Zumietung / Abholschein drucken
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+          ${subrentals.length === 0 ? `
+            <p class="text-xs text-slate-400 italic">Keine Zumietungen für diesen Job hinterlegt.</p>
+          ` : `
+            <div class="overflow-x-auto bg-white rounded-lg border border-slate-200">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-amber-50 border-b border-amber-200 text-amber-950 uppercase text-[10px]">
+                    <th class="p-2 text-center w-16">Abgeholt</th>
+                    <th class="p-2 w-14 text-center">Menge</th>
+                    <th class="p-2">Zumiet-Artikel</th>
+                    <th class="p-2">Vermieter / Lieferant</th>
+                    <th class="p-2">Abholadresse</th>
+                    <th class="p-2">Abholzeit</th>
+                    <th class="p-2">Abholer / Notiz</th>
+                    <th class="p-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${subrentals.map(sr => `
+                    <tr class="${sr.picked_up ? 'bg-emerald-50/50' : ''}">
+                      <td class="p-2 text-center">
+                        <input type="checkbox" ${sr.picked_up ? 'checked' : ''} onchange="toggleSubrentalPickedUp('${sr.id}', this.checked)"
+                               class="w-4 h-4 rounded text-emerald-600 cursor-pointer" />
+                      </td>
+                      <td class="p-2 text-center font-bold">${sr.qty}×</td>
+                      <td class="p-2 font-bold text-slate-900">${esc(sr.item_description)}</td>
+                      <td class="p-2 font-semibold text-indigo-700">${esc(sr.supplier_name)}</td>
+                      <td class="p-2">${esc(sr.pickup_address || '-')}</td>
+                      <td class="p-2 font-semibold">${esc(sr.pickup_datetime || '-')}</td>
+                      <td class="p-2 text-slate-600">${esc(sr.notes || '-')}</td>
+                      <td class="p-2 text-right">
+                        <button onclick="deleteSubrental('${sr.id}')" class="text-slate-400 hover:text-red-600">✕</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
         </div>
       </div>
     `;
   }).join('');
+}
+
+async function updateJobPickupInfo(jobId, val) {
+  await sb.from('jobs').update({ pickup_info: val.trim() }).eq('id', jobId);
+  const j = state.jobs.find(x => x.id === jobId);
+  if (j) j.pickup_info = val.trim();
+}
+
+async function updatePackLineField(lineId, field, value) {
+  await sb.from('job_packlist_lines').update({ [field]: value }).eq('id', lineId);
+  const line = state.packlistLines.find(l => l.id === lineId);
+  if (line) line[field] = value;
+  if (field === 'packed' || field === 'loaded' || field === 'show_on_print') {
+    renderJobs();
+  }
+}
+
+async function deletePackLine(lineId) {
+  if (!confirm('Diese Position aus der Packliste entfernen?')) return;
+  await sb.from('job_packlist_lines').delete().eq('id', lineId);
+  await loadAllData();
+}
+
+// ============================================================================
+// NACHTRÄGLICH ARTIKEL / FREITEXT IN DIE PACKLISTE ERGÄNZEN
+// ============================================================================
+function openAddPackLineModal(jobId) {
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) return;
+  const tenantItems = state.items.filter(i => i.tenant_id === job.tenant_id);
+
+  openModal(`
+    <h3 class="text-lg font-bold mb-3">➕ Position zur Packliste ergänzen</h3>
+    <form onsubmit="saveAddedPackLine(event, '${jobId}')" class="space-y-3 text-sm">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Aus Bestand wählen (optional – füllt Name & Lagerort vor)</label>
+        <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <option value="">-- Freitext / Manuelle Position eingeben --</option>
+          ${tenantItems.map(i => `<option value="${i.id}">${esc(i.name)} (${esc(i.category)}${i.storage_location ? ' • ' + esc(i.storage_location) : ''})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-3">
+          <label class="block text-xs font-semibold mb-1">Bezeichnung auf der Packliste</label>
+          <input id="add-pl-name" required placeholder="z. B. Ersatz-HDMI-Kabel oder Grafik Big LED UP 2,96m" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Menge</label>
+          <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Kategorie</label>
+          <input id="add-pl-cat" value="Nachtrag" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Lagerort</label>
+          <input id="add-pl-loc" placeholder="z. B. Regal B2" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Anmerkung (optional)</label>
+        <input id="add-pl-notes" placeholder="z. B. Beidseitige Grafik einpacken" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <label class="flex items-center gap-2 cursor-pointer pt-1">
+        <input id="add-pl-print" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600" />
+        <span class="text-xs font-semibold text-slate-700">Auf DIN-A4 Ausdruck & Excel anzeigen (bei reinen Info-/Grafik-Artikeln abwählbar)</span>
+      </label>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Hinzufügen</button>
+      </div>
+    </form>
+  `);
+}
+
+function onAddPackLinePick() {
+  const itemId = document.getElementById('add-pl-picker').value;
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  document.getElementById('add-pl-name').value = item.name;
+  document.getElementById('add-pl-cat').value = item.category || 'Allgemein';
+  document.getElementById('add-pl-loc').value = item.storage_location || '';
+}
+
+async function saveAddedPackLine(e, jobId) {
+  e.preventDefault();
+  const source_item_id = document.getElementById('add-pl-picker').value || null;
+  const payload = {
+    job_id: jobId,
+    source_item_id,
+    line_name: document.getElementById('add-pl-name').value.trim(),
+    qty_required: parseInt(document.getElementById('add-pl-qty').value, 10) || 1,
+    category: document.getElementById('add-pl-cat').value.trim() || 'Nachtrag',
+    storage_location: document.getElementById('add-pl-loc').value.trim(),
+    notes: document.getElementById('add-pl-notes').value.trim(),
+    show_on_print: document.getElementById('add-pl-print').checked
+  };
+  const { error } = await sb.from('job_packlist_lines').insert(payload);
+  if (error) return alert(error.message);
+  closeModal();
+  await loadAllData();
+}
+
+// ============================================================================
+// ZUMIETUNGEN MODAL & CRUD
+// ============================================================================
+function openSubrentalModal(jobId) {
+  openModal(`
+    <h3 class="text-lg font-bold mb-3">🚐 Zumietung & Abholung eintragen</h3>
+    <form onsubmit="saveSubrental(event, '${jobId}')" class="space-y-3 text-sm">
+      <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-3">
+          <label class="block text-xs font-semibold mb-1">Zumiet-Artikel / Material</label>
+          <input id="sr-item" required placeholder="z. B. 2× Traverse 3m + Bodenplatten" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Menge</label>
+          <input id="sr-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Vermieter / Lieferant</label>
+        <input id="sr-supplier" required placeholder="z. B. DryHire Partner GmbH" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold mb-1">Abholadresse</label>
+          <input id="sr-address" required placeholder="Straße, PLZ Ort" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1">Abholzeit / Datum</label>
+          <input id="sr-time" required placeholder="z. B. Do. 19.11. um 14:30 Uhr" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold mb-1">Abholer / Ansprechpartner / Referenz (optional)</label>
+        <input id="sr-notes" placeholder="z. B. Abholer: Patrick • Auftragsnr. 4711" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold">Zumietung speichern</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveSubrental(e, jobId) {
+  e.preventDefault();
+  const payload = {
+    job_id: jobId,
+    item_description: document.getElementById('sr-item').value.trim(),
+    qty: parseInt(document.getElementById('sr-qty').value, 10) || 1,
+    supplier_name: document.getElementById('sr-supplier').value.trim(),
+    pickup_address: document.getElementById('sr-address').value.trim(),
+    pickup_datetime: document.getElementById('sr-time').value.trim(),
+    notes: document.getElementById('sr-notes').value.trim()
+  };
+  const { error } = await sb.from('job_subrentals').insert(payload);
+  if (error) return alert(error.message);
+  closeModal();
+  await loadAllData();
+}
+
+async function toggleSubrentalPickedUp(srId, picked_up) {
+  await sb.from('job_subrentals').update({ picked_up }).eq('id', srId);
+  const sr = state.jobSubrentals.find(x => x.id === srId);
+  if (sr) sr.picked_up = picked_up;
+  renderJobs();
+}
+
+async function deleteSubrental(srId) {
+  if (!confirm('Diese Zumietung löschen?')) return;
+  await sb.from('job_subrentals').delete().eq('id', srId);
+  await loadAllData();
+}
+
+// ============================================================================
+// DRUCKFUNKTIONEN (PACKLISTE OHNE REPARATUREN & SEPARATER ZUMIETUNGSSCHEIN)
+// ============================================================================
+function triggerCustomPrint(html) {
+  const area = document.getElementById('dedicated-print-area');
+  area.innerHTML = html;
+  document.body.classList.add('custom-print-mode');
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove('custom-print-mode');
+    area.innerHTML = '';
+  }, 500);
+}
+
+function printGeneralPage() {
+  document.body.classList.remove('custom-print-mode');
+  window.print();
+}
+
+function printPacklist(jobId) {
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) return;
+  // Nur Zeilen drucken, bei denen show_on_print nicht deaktiviert wurde (z. B. Grafiken)
+  const lines = state.packlistLines.filter(l => l.job_id === jobId && l.show_on_print !== false);
+
+  const html = `
+    <div class="border-b-2 border-black pb-3 mb-4 flex justify-between items-end">
+      <div>
+        <div class="text-xs uppercase font-bold tracking-wider text-gray-600">Pack- & Ladeliste • Bestand: ${esc(tenantName(job.tenant_id))}</div>
+        <h1 class="text-2xl font-extrabold mt-0.5">${esc(job.title)}</h1>
+        ${job.event_date ? `<div class="text-sm mt-0.5">Einsatzdatum: <b>${job.event_date}</b></div>` : ''}
+      </div>
+      <div class="text-right text-xs">
+        <div>Druckdatum: ${new Date().toLocaleDateString('de-DE')}</div>
+        <div class="mt-2">Gepackt von: __________________</div>
+        <div class="mt-1">Geladen von: __________________</div>
+      </div>
+    </div>
+
+    ${job.pickup_info ? `
+      <div class="mb-4 p-2.5 border border-black bg-gray-100 text-sm">
+        <b>Abholung / Hinweis:</b> ${esc(job.pickup_info)}
+      </div>
+    ` : ''}
+
+    <table class="w-full text-left border-collapse text-xs print-table">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="w-14 text-center">Gepackt</th>
+          <th class="w-14 text-center">Geladen</th>
+          <th class="w-14 text-center">Menge</th>
+          <th>Artikel / Komponente</th>
+          <th class="w-32">Lagerort</th>
+          <th class="w-48">Anmerkung</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lines.map(l => `
+          <tr>
+            <td class="text-center font-bold text-base">${l.packed ? '☑' : '☐'}</td>
+            <td class="text-center font-bold text-base">${l.loaded ? '☑' : '☐'}</td>
+            <td class="text-center font-bold">${l.qty_required}×</td>
+            <td>
+              <div class="font-bold">${esc(l.line_name)}</div>
+              ${l.category ? `<div class="text-[10px] text-gray-600">${esc(l.category)}</div>` : ''}
+            </td>
+            <td>${esc(l.storage_location || '')}</td>
+            <td>${esc(l.notes || '')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  triggerCustomPrint(html);
+}
+
+function printSubrentals(jobId) {
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) return;
+  const subrentals = state.jobSubrentals.filter(s => s.job_id === jobId);
+
+  const html = `
+    <div class="border-b-2 border-black pb-3 mb-4 flex justify-between items-end">
+      <div>
+        <div class="text-xs uppercase font-bold tracking-wider text-gray-600">Abholschein / Zumietung • ${esc(tenantName(job.tenant_id))}</div>
+        <h1 class="text-2xl font-extrabold mt-0.5">Einsatz: ${esc(job.title)}</h1>
+        ${job.event_date ? `<div class="text-sm mt-0.5">Einsatzdatum: <b>${job.event_date}</b></div>` : ''}
+      </div>
+      <div class="text-right text-xs">
+        <div>Druckdatum: ${new Date().toLocaleDateString('de-DE')}</div>
+        <div class="mt-3">Abgeholt von: ______________________</div>
+      </div>
+    </div>
+
+    <table class="w-full text-left border-collapse text-xs print-table">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="w-14 text-center">Erledigt</th>
+          <th class="w-14 text-center">Menge</th>
+          <th>Material / Artikel</th>
+          <th>Vermieter / Lieferant</th>
+          <th>Abholadresse</th>
+          <th>Abholzeit</th>
+          <th>Abholer / Notiz</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${subrentals.map(sr => `
+          <tr>
+            <td class="text-center font-bold text-base">${sr.picked_up ? '☑' : '☐'}</td>
+            <td class="text-center font-bold">${sr.qty}×</td>
+            <td class="font-bold">${esc(sr.item_description)}</td>
+            <td>${esc(sr.supplier_name)}</td>
+            <td>${esc(sr.pickup_address || '')}</td>
+            <td class="font-bold">${esc(sr.pickup_datetime || '')}</td>
+            <td>${esc(sr.notes || '')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  triggerCustomPrint(html);
+}
+
+// ============================================================================
+// EXCEL-EXPORT (.XLSX) FÜR DIE PACKLISTE (BEARBEITBAR)
+// ============================================================================
+function exportPacklistExcel(jobId) {
+  const job = state.jobs.find(j => j.id === jobId);
+  if (!job) return;
+  const lines = state.packlistLines.filter(l => l.job_id === jobId);
+  const subrentals = state.jobSubrentals.filter(s => s.job_id === jobId);
+
+  const wb = XLSX.utils.book_new();
+
+  // Tabellenblatt 1: Packliste (ohne Werkstatt/Reparatur-Spalten)
+  const packRows = [
+    ['Packliste:', job.title],
+    ['Bestandsbereich:', tenantName(job.tenant_id)],
+    ['Einsatzdatum:', job.event_date || '-'],
+    ['Abholung / Hinweis:', job.pickup_info || '-'],
+    [],
+    ['Gepackt', 'Geladen', 'Menge', 'Artikel / Komponente', 'Kategorie', 'Lagerort', 'Anmerkung', 'Im Druck']
+  ];
+
+  lines.forEach(l => {
+    packRows.push([
+      l.packed ? 'Ja' : 'Nein',
+      l.loaded ? 'Ja' : 'Nein',
+      l.qty_required,
+      l.line_name,
+      l.category || '',
+      l.storage_location || '',
+      l.notes || '',
+      l.show_on_print !== false ? 'Ja' : 'Nein'
+    ]);
+  });
+
+  const wsPack = XLSX.utils.aoa_to_sheet(packRows);
+  wsPack['!cols'] = [
+    { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 42 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 10 }
+  ];
+  XLSX.utils.book_append_sheet(wb, wsPack, 'Packliste');
+
+  // Tabellenblatt 2: Zumietungen (falls vorhanden)
+  if (subrentals.length > 0) {
+    const srRows = [
+      ['Zumietungen & Abholungen für:', job.title],
+      [],
+      ['Abgeholt', 'Menge', 'Material / Artikel', 'Vermieter / Lieferant', 'Abholadresse', 'Abholzeit', 'Abholer / Notiz']
+    ];
+    subrentals.forEach(sr => {
+      srRows.push([
+        sr.picked_up ? 'Ja' : 'Nein',
+        sr.qty,
+        sr.item_description,
+        sr.supplier_name,
+        sr.pickup_address || '',
+        sr.pickup_datetime || '',
+        sr.notes || ''
+      ]);
+    });
+    const wsSr = XLSX.utils.aoa_to_sheet(srRows);
+    wsSr['!cols'] = [{ wch: 10 }, { wch: 8 }, { wch: 30 }, { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 28 }];
+    XLSX.utils.book_append_sheet(wb, wsSr, 'Zumietungen');
+  }
+
+  const safeTitle = job.title.replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
+  XLSX.writeFile(wb, `Packliste_${safeTitle}.xlsx`);
 }
 
 // ============================================================================
@@ -1021,7 +1532,7 @@ function renderStocktake() {
 }
 
 // ============================================================================
-// MODALS & CRUD-AKTIONEN
+// MODALS & CRUD-AKTIONEN (ARTIKEL & NEUE PACKLISTE INKL. BIG LED UP GRAFIKEN)
 // ============================================================================
 function openModal(html) {
   document.getElementById('modal-content').innerHTML = html;
@@ -1063,7 +1574,15 @@ async function saveTenant(e) {
 function openItemModal(itemId = null) {
   const item = itemId ? state.items.find(i => i.id === itemId) : null;
   const comps = item ? state.bundleComponents.filter(c => c.parent_item_id === item.id) : [];
-  const cfg = (item && item.dimension_config) || { min_width: 2, max_width: 5, step_width: 1, base_item: 'Grundkoffer (2m x 2,48m)', ext_item: 'Zusatzkissen' };
+  const cfg = (item && item.dimension_config) || {
+    min_width: 2,
+    max_width: 4.96,
+    step_width: 0.96,
+    base_item: 'Grundkoffer (2,00m x 2,48m)',
+    ext_item: 'Zusatzkissen (0,96m)',
+    reflector_item: 'Reflektor',
+    graphic_item: 'Grafik'
+  };
   const defaultTenant = item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || ''));
 
   openModal(`
@@ -1078,14 +1597,14 @@ function openItemModal(itemId = null) {
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Kategorie</label>
-          <input id="it-cat" required value="${esc(item?.category || 'Allgemein')}" placeholder="z. B. Strom, LED, Audio" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="it-cat" required value="${esc(item?.category || 'Allgemein')}" placeholder="z. B. Strom, LED, Audio, Grafik" class="w-full px-3 py-2 border rounded-lg" />
         </div>
       </div>
 
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
           <label class="block text-xs font-semibold mb-1">Artikelbezeichnung</label>
-          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. Big LED UP, Lärmpyramide, Stromkabel 10m" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. Big LED UP, Lärmpyramide, Grafik" class="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Gesamtbestand</label>
@@ -1103,7 +1622,7 @@ function openItemModal(itemId = null) {
           <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2 border rounded-lg bg-white">
             <option value="single" ${(!item || item.item_type === 'single') ? 'selected' : ''}>Einzelartikel (Stückzahl)</option>
             <option value="bundle" ${item?.item_type === 'bundle' ? 'selected' : ''}>Komponenten-Set (z. B. Vorschaumonitor)</option>
-            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System nach Breite (z. B. Big LED UP)</option>
+            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: 2m / 2,96m + Reflektor + Grafik)</option>
           </select>
         </div>
       </div>
@@ -1116,13 +1635,17 @@ function openItemModal(itemId = null) {
       <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
         <div class="text-xs font-bold text-blue-900">Maß- & Erweiterungsregel (z. B. Big LED UP):</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
-          <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.5" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.5" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Schrittweite (m)</label><input id="dim-step" type="number" step="0.5" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.01" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.01" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Schrittweite (m)</label><input id="dim-step" type="number" step="0.01" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <div><label>Basiskomponente (bei Grundbreite)</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Erweiterung je Schritt</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Basiskomponente (2 m)</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Erweiterung (ab 2,96 m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div><label>Reflektor-Bezeichnung</label><input id="dim-ref" value="${esc(cfg.reflector_item || 'Reflektor')}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Grafik-Bezeichnung</label><input id="dim-gfx" value="${esc(cfg.graphic_item || 'Grafik')}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
       </div>
 
@@ -1155,10 +1678,12 @@ async function saveItem(e, itemId) {
   const item_type = document.getElementById('it-type').value;
   const dimension_config = item_type === 'dimension' ? {
     min_width: parseFloat(document.getElementById('dim-min').value) || 2,
-    max_width: parseFloat(document.getElementById('dim-max').value) || 5,
-    step_width: parseFloat(document.getElementById('dim-step').value) || 1,
-    base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer',
-    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen'
+    max_width: parseFloat(document.getElementById('dim-max').value) || 4.96,
+    step_width: parseFloat(document.getElementById('dim-step').value) || 0.96,
+    base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer (2,00m x 2,48m)',
+    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen (0,96m)',
+    reflector_item: document.getElementById('dim-ref').value.trim() || 'Reflektor',
+    graphic_item: document.getElementById('dim-gfx').value.trim() || 'Grafik'
   } : null;
 
   const payload = {
@@ -1205,12 +1730,15 @@ async function deleteItem(id) {
   await loadAllData();
 }
 
+// ============================================================================
+// NEUE PACKLISTE ERSTELLEN (MIT BIG LED UP 2m / 2,96m + REFLEKTOR + 1x/2x GRAFIK)
+// ============================================================================
 let draftBookings = [];
 function openNewJobModal() {
   draftBookings = [];
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
   openModal(`
-    <h3 class="text-lg font-bold mb-3">Neue Packliste / Einsatz erstellen</h3>
+    <h3 class="text-lg font-bold mb-3">Neue Packliste / Einsatz disponieren</h3>
     <form onsubmit="saveJob(event)" class="space-y-3 text-sm">
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -1230,18 +1758,48 @@ function openNewJobModal() {
         <input id="job-title" required placeholder="z. B. Messe BGHW Halle 4" class="w-full px-3 py-2 border rounded-lg" />
       </div>
 
-      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Abhol-Vermerk / Dispo-Hinweis (optional)</label>
+        <input id="job-pickup-info" placeholder="z. B. Abholung am Fr. 09:00 Uhr durch Markus" class="w-full px-3 py-2 border rounded-lg" />
+      </div>
+
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
         <div class="text-xs font-bold text-slate-700">Artikel zur Packliste hinzufügen:</div>
         <div class="grid grid-cols-12 gap-2">
-          <select id="job-item-select" onchange="onJobItemSelectChange()" class="col-span-6 px-2.5 py-2 border rounded-lg bg-white text-xs"></select>
+          <select id="job-item-select" onchange="onJobItemSelectChange()" class="col-span-8 px-2.5 py-2 border rounded-lg bg-white text-xs"></select>
           <input id="job-item-qty" type="number" min="1" value="1" title="Menge" class="col-span-2 px-2 py-2 border rounded-lg text-xs text-center" />
-          <div id="job-width-wrap" class="col-span-2 hidden">
-            <input id="job-item-width" type="number" step="0.5" value="3" title="Breite in m" class="w-full px-2 py-2 border border-blue-400 rounded-lg text-xs text-center bg-blue-50 font-bold" />
-          </div>
-          <button type="button" onclick="addDraftBooking()" class="col-span-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">+ Dazu</button>
+          <button type="button" onclick="addDraftBooking()" class="col-span-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">+ Dazu</button>
         </div>
-        <div id="job-width-hint" class="hidden text-[11px] text-blue-700 font-semibold">Breite in Metern angeben (z. B. 3 für 3 m → berechnet automatisch Grundkoffer + Erweiterungen).</div>
-        <div id="draft-bookings-list" class="space-y-1 pt-2"></div>
+
+        <!-- Spezielle Optionen für Maß-Systeme wie Big LED UP -->
+        <div id="job-dimension-options" class="hidden p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-xs">
+          <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen:</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-semibold text-blue-900 mb-0.5">Breite des Systems</label>
+              <select id="job-item-width" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+                <option value="2">2,00 m (Grundkoffer)</option>
+                <option value="2.96" selected>2,96 m (Grundkoffer + 1× Zusatzkissen)</option>
+                <option value="3.96">3,96 m (Grundkoffer + 2× Zusatzkissen)</option>
+                <option value="4.96">4,96 m (Grundkoffer + 3× Zusatzkissen)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-blue-900 mb-0.5">Grafik (ein- oder beidseitig)</label>
+              <select id="job-item-graphics" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+                <option value="1" selected>1× Grafik (einseitig, passendes Maß)</option>
+                <option value="2">2× Grafik (beidseitig, passendes Maß)</option>
+                <option value="0">Ohne Grafik</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer text-blue-950">
+            <input id="job-gfx-on-print" type="checkbox" checked class="w-3.5 h-3.5 rounded text-indigo-600" />
+            <span>Grafiken auch auf dem Packlisten-Ausdruck anzeigen (sonst nur in der Web-Packliste)</span>
+          </label>
+        </div>
+
+        <div id="draft-bookings-list" class="space-y-1 pt-1"></div>
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
@@ -1265,11 +1823,7 @@ function onJobItemSelectChange() {
   const itemId = document.getElementById('job-item-select').value;
   const item = state.items.find(i => i.id === itemId);
   const isDim = item && item.item_type === 'dimension';
-  document.getElementById('job-width-wrap').classList.toggle('hidden', !isDim);
-  document.getElementById('job-width-hint').classList.toggle('hidden', !isDim);
-  if (isDim && item.dimension_config) {
-    document.getElementById('job-item-width').value = item.dimension_config.min_width + item.dimension_config.step_width;
-  }
+  document.getElementById('job-dimension-options').classList.toggle('hidden', !isDim);
 }
 
 function addDraftBooking() {
@@ -1277,19 +1831,31 @@ function addDraftBooking() {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
   const qty = parseInt(document.getElementById('job-item-qty').value, 10) || 1;
-  const width = item.item_type === 'dimension' ? parseFloat(document.getElementById('job-item-width').value) : null;
-  draftBookings.push({ item, qty, width });
+  const isDim = item.item_type === 'dimension';
+  const width = isDim ? parseFloat(document.getElementById('job-item-width').value) : null;
+  const graphicSides = isDim ? parseInt(document.getElementById('job-item-graphics').value, 10) : 0;
+  const gfxOnPrint = isDim ? document.getElementById('job-gfx-on-print').checked : true;
+
+  draftBookings.push({ item, qty, width, graphicSides, gfxOnPrint });
   renderDraftBookings();
 }
 
 function renderDraftBookings() {
   const el = document.getElementById('draft-bookings-list');
-  el.innerHTML = draftBookings.map((b, idx) => `
-    <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border text-xs">
-      <span><b>${b.qty}×</b> ${esc(b.item.name)} ${b.width ? `<span class="text-blue-700 font-bold">(${b.width} m Breite)</span>` : ''}</span>
-      <button type="button" onclick="draftBookings.splice(${idx}, 1); renderDraftBookings();" class="text-red-500 font-bold">✕</button>
-    </div>
-  `).join('');
+  el.innerHTML = draftBookings.map((b, idx) => {
+    let extraLabel = '';
+    if (b.width) {
+      const wStr = String(b.width).replace('.', ',');
+      const gfxTxt = b.graphicSides === 2 ? ' • 2× Grafik (beidseitig)' : b.graphicSides === 1 ? ' • 1× Grafik' : ' • ohne Grafik';
+      extraLabel = `<span class="text-blue-700 font-bold">(${wStr} m + Reflektor${gfxTxt})</span>`;
+    }
+    return `
+      <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border text-xs">
+        <span><b>${b.qty}×</b> ${esc(b.item.name)} ${extraLabel}</span>
+        <button type="button" onclick="draftBookings.splice(${idx}, 1); renderDraftBookings();" class="text-red-500 font-bold">✕</button>
+      </div>
+    `;
+  }).join('');
 }
 
 async function saveJob(e) {
@@ -1299,8 +1865,15 @@ async function saveJob(e) {
   const tenant_id = document.getElementById('job-tenant').value;
   const title = document.getElementById('job-title').value.trim();
   const event_date = document.getElementById('job-date').value || null;
+  const pickup_info = document.getElementById('job-pickup-info').value.trim();
 
-  const { data: job, error } = await sb.from('jobs').insert({ tenant_id, title, event_date, status: 'packing' }).select().single();
+  const { data: job, error } = await sb.from('jobs').insert({
+    tenant_id,
+    title,
+    event_date,
+    pickup_info,
+    status: 'packing'
+  }).select().single();
   if (error) return alert(error.message);
 
   const bookingRows = draftBookings.map(b => ({
@@ -1314,24 +1887,62 @@ async function saveJob(e) {
 
   const packLines = [];
   for (const b of draftBookings) {
+    const defaultLoc = b.item.storage_location || '';
+    const isGraphicItem = (b.item.category || '').toLowerCase().includes('grafik');
+
     if (b.item.item_type === 'dimension' && b.item.dimension_config) {
       const cfg = b.item.dimension_config;
-      const extraMeters = Math.max(0, (b.width || cfg.min_width) - cfg.min_width);
-      const extCount = Math.ceil(extraMeters / (cfg.step_width || 1));
+      const w = b.width || cfg.min_width || 2;
+      const wLabel = `${String(w).replace('.', ',')} m`;
+      const extraMeters = Math.max(0, w - (cfg.min_width || 2));
+      const extCount = Math.round(extraMeters / (cfg.step_width || 0.96));
+
+      // 1. Grundkoffer (2,00 m)
       packLines.push({
         job_id: job.id,
         source_item_id: b.item.id,
-        line_name: `${cfg.base_item} (${b.item.name} Basis)`,
+        line_name: `${cfg.base_item} (${b.item.name})`,
         category: b.item.category,
-        qty_required: b.qty
+        qty_required: b.qty,
+        storage_location: defaultLoc,
+        show_on_print: true
       });
+
+      // 2. Zusatzkissen (ab 2,96 m)
       if (extCount > 0) {
         packLines.push({
           job_id: job.id,
           source_item_id: b.item.id,
-          line_name: `${cfg.ext_item} (${b.item.name} Erweiterung auf ${b.width} m)`,
+          line_name: `${cfg.ext_item} (${b.item.name} auf ${wLabel})`,
           category: b.item.category,
-          qty_required: b.qty * extCount
+          qty_required: b.qty * extCount,
+          storage_location: defaultLoc,
+          show_on_print: true
+        });
+      }
+
+      // 3. Reflektor im passenden Maß
+      packLines.push({
+        job_id: job.id,
+        source_item_id: b.item.id,
+        line_name: `${cfg.reflector_item || 'Reflektor'} (${b.item.name} ${wLabel})`,
+        category: b.item.category,
+        qty_required: b.qty,
+        storage_location: defaultLoc,
+        show_on_print: true
+      });
+
+      // 4. Grafik (1x einseitig oder 2x beidseitig im passenden Maß)
+      if (b.graphicSides > 0) {
+        const sideText = b.graphicSides === 2 ? 'beidseitig (2×)' : 'einseitig (1×)';
+        packLines.push({
+          job_id: job.id,
+          source_item_id: b.item.id,
+          line_name: `${cfg.graphic_item || 'Grafik'} ${wLabel} – ${sideText} (${b.item.name})`,
+          category: 'Grafik',
+          qty_required: b.qty * b.graphicSides,
+          storage_location: '',
+          show_on_print: b.gfxOnPrint
         });
       }
     } else if (b.item.item_type === 'bundle') {
@@ -1343,24 +1954,37 @@ async function saveJob(e) {
             source_item_id: b.item.id,
             line_name: `${c.component_name} (für ${b.item.name})`,
             category: b.item.category,
-            qty_required: b.qty * c.qty_per_unit
+            qty_required: b.qty * c.qty_per_unit,
+            storage_location: defaultLoc,
+            show_on_print: true
           });
         });
       } else {
-        packLines.push({ job_id: job.id, source_item_id: b.item.id, line_name: b.item.name, category: b.item.category, qty_required: b.qty });
+        packLines.push({
+          job_id: job.id,
+          source_item_id: b.item.id,
+          line_name: b.item.name,
+          category: b.item.category,
+          qty_required: b.qty,
+          storage_location: defaultLoc,
+          show_on_print: true
+        });
       }
     } else {
-      packLines.push({ job_id: job.id, source_item_id: b.item.id, line_name: b.item.name, category: b.item.category, qty_required: b.qty });
+      packLines.push({
+        job_id: job.id,
+        source_item_id: b.item.id,
+        line_name: b.item.name,
+        category: b.item.category,
+        qty_required: b.qty,
+        storage_location: defaultLoc,
+        show_on_print: !isGraphicItem
+      });
     }
   }
 
   await sb.from('job_packlist_lines').insert(packLines);
   closeModal();
-  await loadAllData();
-}
-
-async function togglePackLine(lineId, packed) {
-  await sb.from('job_packlist_lines').update({ packed }).eq('id', lineId);
   await loadAllData();
 }
 
@@ -1375,6 +1999,9 @@ async function deleteJob(jobId) {
   await loadAllData();
 }
 
+// ============================================================================
+// DEFEKTE / WERKSTATT & DGUV MODALS
+// ============================================================================
 function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobId = '', packLineId = '') {
   const item = itemId ? state.items.find(i => i.id === itemId) : null;
   const defaultTenant = presetTenantId || (item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || '')));
@@ -1673,8 +2300,26 @@ async function seedExampleData() {
       item_type: 'dimension',
       total_qty: 2,
       is_dguv: true,
-      dimension_config: { min_width: 2, max_width: 5, step_width: 1, base_item: 'Grundkoffer (2m x 2,48m)', ext_item: 'Zusatzkissen' },
-      notes: 'Ab 3m Breite kommt pro Meter 1 Zusatzkissen dazu.'
+      dimension_config: {
+        min_width: 2,
+        max_width: 4.96,
+        step_width: 0.96,
+        base_item: 'Grundkoffer (2,00m x 2,48m)',
+        ext_item: 'Zusatzkissen (0,96m)',
+        reflector_item: 'Reflektor',
+        graphic_item: 'Grafik'
+      },
+      notes: '2,00m oder 2,96m+ inkl. Reflektor & 1×/2× Grafik.'
+    },
+    {
+      tenant_id: bghw.id,
+      name: 'Grafik Banner (allgemein)',
+      category: 'Grafik',
+      storage_location: 'Grafik-Regal G1',
+      item_type: 'single',
+      total_qty: 10,
+      is_dguv: false,
+      notes: 'Wird in der Packliste geführt, standardmäßig ohne Ausdruck.'
     },
     {
       tenant_id: bghw.id,
