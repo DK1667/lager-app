@@ -192,7 +192,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
             <h2 class="font-bold text-lg text-slate-900">Einsätze, Packlisten, Abholung & Zumietungen</h2>
-            <p class="text-xs text-slate-500">Disponieren mit smarten Artikel-Abfragen (Audipack, Kabel, Big LED UP), automatischer Zusammenfassung & Abholadressen.</p>
+            <p class="text-xs text-slate-500">Disponieren mit Big LED UP Maßabfrage (Breite & Höhe), Zubehör-Abfragen, automatischer Zusammenfassung & Zumietungen auf der Packliste.</p>
           </div>
           <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
             + Neue Packliste / Job
@@ -488,7 +488,7 @@ function getDguvStatusBadge(itemId) {
 }
 
 // ============================================================================
-// TAB 1: BESTAND & ARTIKEL (ZUMIETARTIKEL WERDEN IM BESTAND AUSGEBLENDET)
+// TAB 1: BESTAND & ARTIKEL
 // ============================================================================
 function setInventoryViewMode(mode) {
   state.inventoryViewMode = mode;
@@ -547,7 +547,6 @@ function renderInventory() {
 
   let filtered = state.items.filter(item => {
     if (state.selectedTenant !== 'ALL' && item.tenant_id !== state.selectedTenant) return false;
-    // Standardmäßig keine Zumietartikel im Bestand anzeigen!
     if (typeFilter === 'SUBRENTAL_ONLY') {
       if (!item.is_subrental) return false;
     } else if (typeFilter !== 'ALL_INC_SUB') {
@@ -592,7 +591,7 @@ function renderInventory() {
   });
 
   const subCount = state.items.filter(i => i.is_subrental).length;
-  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel angezeigt` + (subCount > 0 ? ` (${subCount} Zumietartikel im Packlisten-Katalog hinterlegt)` : '');
+  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel angezeigt` + (subCount > 0 ? ` (${subCount} Zumietartikel im Packlisten-Katalog)` : '');
 
   const container = document.getElementById('inventory-container');
   if (filtered.length === 0) {
@@ -629,7 +628,7 @@ function renderInventory() {
                 subInfo += `<div class="text-[11px] text-purple-700 mt-0.5">Set: ${comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ')}</div>`;
               } else if (item.item_type === 'dimension' && item.dimension_config) {
                 const cfg = item.dimension_config;
-                subInfo += `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System (${cfg.min_width} m / 2,96 m+): ${esc(cfg.base_item)} + ${esc(cfg.ext_item)} + Reflektor & 1×/2× Grafik</div>`;
+                subInfo += `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System (Breite & Höhe 2,00m / 2,48m): ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik</div>`;
               }
               if (rules.length > 0) {
                 subInfo += `<div class="text-[11px] text-amber-700 mt-0.5">🔗 ${rules.length} Dispo-Abfrage(n): ${rules.map(r => esc(r.question)).join(' • ')}</div>`;
@@ -701,9 +700,9 @@ function renderInventory() {
       </div>`;
     } else if (item.item_type === 'dimension' && item.dimension_config) {
       const cfg = item.dimension_config;
-      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (${cfg.min_width} m / 2,96 m+)</span>`;
+      typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (Breite & Höhe)</span>`;
       detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-        <span class="font-semibold">Hierarchie:</span> Hauptzeile Big LED UP, darunter ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & 1×/2× Grafik.
+        <span class="font-semibold">Positionen:</span> Hauptzeile Big LED UP + eigene Zeilen für ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
       </div>`;
     }
     if (rules.length > 0) {
@@ -752,6 +751,14 @@ function renderInventory() {
 // ============================================================================
 // TAB 2: PACKLISTEN, DISPO, DRUCK, EXCEL & ZUMIETUNGEN
 // ============================================================================
+function isLineSubrental(line) {
+  const srcItem = line.source_item_id ? state.items.find(x => x.id === line.source_item_id) : null;
+  if (srcItem && srcItem.is_subrental) return true;
+  if ((line.category || '').toLowerCase().includes('zumiet')) return true;
+  if ((line.storage_location || '').toLowerCase().includes('zumiet')) return true;
+  return false;
+}
+
 function renderJobs() {
   const container = document.getElementById('jobs-container');
   const filteredJobs = state.jobs.filter(j => state.selectedTenant === 'ALL' || j.tenant_id === state.selectedTenant);
@@ -765,17 +772,81 @@ function renderJobs() {
 
   container.innerHTML = filteredJobs.map(job => {
     const bookings = state.jobBookings.filter(b => b.job_id === job.id);
-    const lines = state.packlistLines.filter(l => l.job_id === job.id);
+    const allLines = state.packlistLines.filter(l => l.job_id === job.id);
+    // Eigener Bestand oben, Zumietartikel unten drunter sauber getrennt auf derselben Packliste
+    const ownLines = allLines.filter(l => !isLineSubrental(l));
+    const subLines = allLines.filter(l => isLineSubrental(l));
     const subrentals = state.jobSubrentals.filter(s => s.job_id === job.id);
 
-    const packedCount = lines.filter(l => l.packed).length;
-    const loadedCount = lines.filter(l => l.loaded).length;
+    const packedCount = allLines.filter(l => l.packed).length;
+    const loadedCount = allLines.filter(l => l.loaded).length;
 
     const statusBadge = job.status === 'packing'
-      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Dispo / Packen (${packedCount}/${lines.length} gepackt • ${loadedCount}/${lines.length} geladen)</span>`
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Dispo / Packen (${packedCount}/${allLines.length} gepackt • ${loadedCount}/${allLines.length} geladen)</span>`
       : job.status === 'out'
-      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden (${loadedCount}/${lines.length} geladen)</span>`
+      ? `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs / Beim Kunden (${loadedCount}/${allLines.length} geladen)</span>`
       : `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
+
+    const renderPackRow = (line, isSub) => {
+      const rowBg = line.loaded ? 'bg-blue-50/40' : line.packed ? 'bg-emerald-50/40' : (isSub ? 'bg-amber-50/35' : '');
+      const showPrint = line.show_on_print !== false;
+      return `
+        <tr class="${rowBg} hover:bg-slate-50">
+          <td class="p-2.5 text-center">
+            <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)"
+                   title="${isSub ? 'Abgeholt / Bereit' : 'Im Lager gepackt'}" class="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer" />
+          </td>
+          <td class="p-2.5 text-center">
+            <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)"
+                   title="Im Fahrzeug geladen" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" />
+          </td>
+          <td class="p-2.5 text-center font-extrabold text-slate-900">
+            <input type="number" min="1" value="${line.qty_required}"
+                   onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
+                   class="w-14 px-1.5 py-1 text-center font-bold border border-slate-200 rounded bg-white text-xs" />
+          </td>
+          <td class="p-2.5">
+            <div class="font-bold text-slate-900 ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : ''}">
+              ${esc(line.line_name)}
+              ${isSub ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
+            </div>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              ${line.category ? `<span class="text-[11px] text-slate-400">${esc(line.category)}</span>` : ''}
+              ${!showPrint ? `<span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">Nur Web-Liste (nicht im Ausdruck)</span>` : ''}
+              ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">${line.defective_qty}× Defekt</span>` : ''}
+            </div>
+          </td>
+          <td class="p-2.5">
+            <input type="text" value="${esc(line.storage_location || '')}"
+                   onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
+                   placeholder="${isSub ? 'Vermieter / Abholort' : 'Regal / Fach...'}"
+                   class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+          </td>
+          <td class="p-2.5">
+            <input type="text" value="${esc(line.notes || '')}"
+                   onchange="updatePackLineField('${line.id}', 'notes', this.value)"
+                   placeholder="Anmerkung..."
+                   class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+          </td>
+          <td class="p-2.5 text-center">
+            <input type="checkbox" ${showPrint ? 'checked' : ''}
+                   onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)"
+                   title="Auf DIN-A4 Ausdruck anzeigen"
+                   class="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer" />
+          </td>
+          <td class="p-2.5 text-right whitespace-nowrap">
+            ${!isSub ? `
+              <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
+                      title="Defekt in Werkstatt melden"
+                      class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold">
+                🔧 Defekt
+              </button>
+            ` : ''}
+            <button onclick="deletePackLine('${line.id}')" title="Zeile aus Packliste löschen" class="ml-1 px-1.5 py-1 text-slate-400 hover:text-red-600 text-xs">✕</button>
+          </td>
+        </tr>
+      `;
+    };
 
     return `
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -796,7 +867,7 @@ function renderJobs() {
 
           <div class="flex items-center gap-2 flex-wrap">
             <button onclick="openAddPackLineModal('${job.id}')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold">
-              + Artikel ergänzen
+              + Artikel / Zumietung ergänzen
             </button>
             <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">
               🖨️ Packliste drucken
@@ -826,100 +897,50 @@ function renderJobs() {
                 <th class="p-2.5 text-center w-16">Geladen</th>
                 <th class="p-2.5 text-center w-16">Menge</th>
                 <th class="p-2.5">Artikel / Grafik / Komponente</th>
-                <th class="p-2.5 w-40">Lagerort</th>
+                <th class="p-2.5 w-44">Lagerort / Vermieter</th>
                 <th class="p-2.5 w-56">Anmerkung</th>
                 <th class="p-2.5 text-center w-24" title="Soll diese Zeile auf dem DIN-A4 Ausdruck erscheinen?">Im Druck</th>
                 <th class="p-2.5 text-right w-36">Werkstatt / Entfernen</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              ${lines.map(line => {
-                const rowBg = line.loaded ? 'bg-blue-50/40' : line.packed ? 'bg-emerald-50/40' : (line.is_sub_item ? 'bg-slate-50/40' : '');
-                const showPrint = line.show_on_print !== false;
-                const srcItem = line.source_item_id ? state.items.find(x => x.id === line.source_item_id) : null;
-                const isSubrentalLine = (srcItem && srcItem.is_subrental) || (line.category || '').toLowerCase().includes('zumiet');
-                return `
-                  <tr class="${rowBg} hover:bg-slate-50">
-                    <td class="p-2.5 text-center">
-                      <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)"
-                             title="Im Lager gepackt" class="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer" />
-                    </td>
-                    <td class="p-2.5 text-center">
-                      <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)"
-                             title="Im Fahrzeug geladen" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" />
-                    </td>
-                    <td class="p-2.5 text-center font-extrabold text-slate-900">
-                      <input type="number" min="1" value="${line.qty_required}"
-                             onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
-                             class="w-14 px-1.5 py-1 text-center font-bold border border-slate-200 rounded bg-white text-xs" />
-                    </td>
-                    <td class="p-2.5 ${line.is_sub_item ? 'pl-8' : ''}">
-                      <div class="${line.is_sub_item ? 'font-medium text-slate-700' : 'font-bold text-slate-900'} ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : ''}">
-                        ${line.is_sub_item ? '<span class="text-slate-400 mr-1">↳</span>' : ''}${esc(line.line_name)}
-                        ${isSubrentalLine ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">Zumietung</span>` : ''}
-                      </div>
-                      <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-                        ${line.category ? `<span class="text-[11px] text-slate-400">${esc(line.category)}</span>` : ''}
-                        ${!showPrint ? `<span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">Nur Web-Liste (nicht im Ausdruck)</span>` : ''}
-                        ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">${line.defective_qty}× Defekt</span>` : ''}
-                      </div>
-                    </td>
-                    <td class="p-2.5">
-                      <input type="text" value="${esc(line.storage_location || '')}"
-                             onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
-                             placeholder="${isSubrentalLine ? 'Zumietung / Abholung' : 'Regal / Fach...'}"
-                             class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
-                    </td>
-                    <td class="p-2.5">
-                      <input type="text" value="${esc(line.notes || '')}"
-                             onchange="updatePackLineField('${line.id}', 'notes', this.value)"
-                             placeholder="Anmerkung..."
-                             class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
-                    </td>
-                    <td class="p-2.5 text-center">
-                      <input type="checkbox" ${showPrint ? 'checked' : ''}
-                             onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)"
-                             title="Haken entfernen, wenn der Artikel nur in der Web-Packliste und nicht auf dem Ausdruck erscheinen soll"
-                             class="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer" />
-                    </td>
-                    <td class="p-2.5 text-right whitespace-nowrap">
-                      <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
-                              title="Defekt in Werkstatt melden"
-                              class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold">
-                        🔧 Defekt
-                      </button>
-                      <button onclick="deletePackLine('${line.id}')" title="Zeile aus Packliste löschen" class="ml-1 px-1.5 py-1 text-slate-400 hover:text-red-600 text-xs">✕</button>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
+              ${ownLines.map(line => renderPackRow(line, false)).join('')}
+
+              ${subLines.length > 0 ? `
+                <tr class="bg-amber-100/80 border-y border-amber-300">
+                  <td colspan="8" class="px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-amber-950">
+                    🚐 Zumietartikel auf dieser Packliste (nach Abholung hier als Gepackt & Geladen abhaken)
+                  </td>
+                </tr>
+                ${subLines.map(line => renderPackRow(line, true)).join('')}
+              ` : ''}
             </tbody>
           </table>
         </div>
 
         <!-- =============================================================== -->
-        <!-- BEREICH FÜR ZUMIETUNGEN / ABHOLSCHEINE (SEPARAT DRUCKBAR)       -->
+        <!-- BEREICH FÜR ZUMIETUNGEN / ABHOLADRESSEN (SEPARAT DRUCKBAR)       -->
         <!-- =============================================================== -->
         <div class="p-4 bg-slate-50/90 border-t border-slate-200">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
             <div class="flex items-center gap-2">
-              <span class="font-bold text-sm text-slate-900">🚐 Zumietungen & Externe Abholadressen</span>
+              <span class="font-bold text-sm text-slate-900">📍 Abholscheine & Lieferanten-Adressen für Zumietungen</span>
               <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-700">${subrentals.length}</span>
             </div>
             <div class="flex items-center gap-2">
               <button onclick="openSubrentalModal('${job.id}')" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
-                + Zumietung / Abholung eintragen
+                + Zumietung mit Abholadresse eintragen
               </button>
               ${subrentals.length > 0 ? `
                 <button onclick="printSubrentals('${job.id}')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm">
-                  🖨️ Zumietung / Abholschein drucken
+                  🖨️ Abholschein (Zumietung) drucken
                 </button>
               ` : ''}
             </div>
           </div>
 
           ${subrentals.length === 0 ? `
-            <p class="text-xs text-slate-400 italic">Keine separaten Abholadressen / Zumietungen für diesen Job hinterlegt.</p>
+            <p class="text-xs text-slate-400 italic">Noch keine Abholadressen hinterlegt. Wenn du hier eine Zumietung einträgst, wird sie automatisch auch oben auf die Packliste gesetzt.</p>
           ` : `
             <div class="overflow-x-auto bg-white rounded-lg border border-slate-200">
               <table class="w-full text-left border-collapse text-xs">
@@ -983,7 +1004,7 @@ async function deletePackLine(lineId) {
 }
 
 // ============================================================================
-// NACHTRÄGLICH ARTIKEL / FREITEXT IN DIE PACKLISTE ERGÄNZEN (INKL. ZUSAMMENFASSUNG)
+// NACHTRÄGLICH ARTIKEL / ZUMIETUNG IN DIE PACKLISTE ERGÄNZEN
 // ============================================================================
 function openAddPackLineModal(jobId) {
   const job = state.jobs.find(j => j.id === jobId);
@@ -991,20 +1012,20 @@ function openAddPackLineModal(jobId) {
   const tenantItems = state.items.filter(i => i.tenant_id === job.tenant_id);
 
   openModal(`
-    <h3 class="text-lg font-bold mb-3">➕ Position zur Packliste ergänzen</h3>
+    <h3 class="text-lg font-bold mb-3">➕ Position / Zumietung zur Packliste ergänzen</h3>
     <form onsubmit="saveAddedPackLine(event, '${jobId}')" class="space-y-3 text-sm">
       <div>
         <label class="block text-xs font-semibold mb-1">Aus Bestand oder Zumiet-Katalog wählen (optional)</label>
         <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white">
           <option value="">-- Freitext / Manuelle Position eingeben --</option>
-          ${tenantItems.map(i => `<option value="${i.id}">${i.is_subrental ? '[Zumietung] ' : ''}${esc(i.name)} (${esc(i.category)}${i.storage_location ? ' • ' + esc(i.storage_location) : ''})</option>`).join('')}
+          ${tenantItems.map(i => `<option value="${i.id}">${i.is_subrental ? '[ZUMIETUNG] ' : ''}${esc(i.name)} (${esc(i.category)}${i.storage_location ? ' • ' + esc(i.storage_location) : ''})</option>`).join('')}
         </select>
       </div>
 
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
           <label class="block text-xs font-semibold mb-1">Bezeichnung auf der Packliste</label>
-          <input id="add-pl-name" required placeholder="z. B. Ersatz-HDMI-Kabel oder Grafik Big LED UP 2,96m" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="add-pl-name" required placeholder="z. B. Ersatz-HDMI-Kabel oder Zumiet-TV 65 Zoll" class="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Menge</label>
@@ -1012,20 +1033,25 @@ function openAddPackLineModal(jobId) {
         </div>
       </div>
 
+      <label class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
+        <input id="add-pl-is-sub" type="checkbox" class="w-4 h-4 rounded text-amber-600" />
+        <span class="text-xs font-bold text-amber-950">Als Zumietartikel auf der Packliste kennzeichnen</span>
+      </label>
+
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Kategorie</label>
           <input id="add-pl-cat" value="Nachtrag" class="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div>
-          <label class="block text-xs font-semibold mb-1">Lagerort</label>
-          <input id="add-pl-loc" placeholder="z. B. Regal B2" class="w-full px-3 py-2 border rounded-lg" />
+          <label class="block text-xs font-semibold mb-1">Lagerort / Vermieter</label>
+          <input id="add-pl-loc" placeholder="z. B. Regal B2 oder DryHire Partner" class="w-full px-3 py-2 border rounded-lg" />
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Anmerkung (optional)</label>
-        <input id="add-pl-notes" placeholder="z. B. Beidseitige Grafik einpacken" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="add-pl-notes" placeholder="z. B. Abholung Do. 14:00 Uhr" class="w-full px-3 py-2 border rounded-lg" />
       </div>
 
       <label class="flex items-center gap-2 cursor-pointer pt-1">
@@ -1046,6 +1072,7 @@ function onAddPackLinePick() {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
   document.getElementById('add-pl-name').value = item.name;
+  document.getElementById('add-pl-is-sub').checked = !!item.is_subrental;
   document.getElementById('add-pl-cat').value = item.is_subrental ? 'Zumietung' : (item.category || 'Allgemein');
   document.getElementById('add-pl-loc').value = item.is_subrental ? 'Zumietung' : (item.storage_location || '');
 }
@@ -1055,12 +1082,12 @@ async function saveAddedPackLine(e, jobId) {
   const source_item_id = document.getElementById('add-pl-picker').value || null;
   const line_name = document.getElementById('add-pl-name').value.trim();
   const qty_required = parseInt(document.getElementById('add-pl-qty').value, 10) || 1;
-  const category = document.getElementById('add-pl-cat').value.trim() || 'Nachtrag';
-  const storage_location = document.getElementById('add-pl-loc').value.trim();
+  const isSub = document.getElementById('add-pl-is-sub').checked;
+  const category = isSub ? 'Zumietung' : (document.getElementById('add-pl-cat').value.trim() || 'Nachtrag');
+  const storage_location = document.getElementById('add-pl-loc').value.trim() || (isSub ? 'Zumietung' : '');
   const notes = document.getElementById('add-pl-notes').value.trim();
   const show_on_print = document.getElementById('add-pl-print').checked;
 
-  // Prüfen, ob genau diese Position in der Packliste schon existiert -> dann Menge zusammenfassen!
   const existing = state.packlistLines.find(l => l.job_id === jobId && l.line_name.toLowerCase() === line_name.toLowerCase());
   if (existing) {
     await sb.from('job_packlist_lines').update({
@@ -1087,12 +1114,13 @@ async function saveAddedPackLine(e, jobId) {
 }
 
 // ============================================================================
-// ZUMIETUNGEN & GESPEICHERTE ABHOLADRESSEN
+// ZUMIETUNGEN & GESPEICHERTE ABHOLADRESSEN (LANDET AUCH AUF DER PACKLISTE!)
 // ============================================================================
 function openSubrentalModal(jobId) {
   const subItems = state.items.filter(i => i.is_subrental);
   openModal(`
     <h3 class="text-lg font-bold mb-3">🚐 Zumietung & Abholung eintragen</h3>
+    <p class="text-xs text-slate-500 mb-3">Der Artikel erscheint automatisch <b>oben in der Packliste</b> (zum Abhaken als Gepackt & Geladen) und unten im <b>Abholschein</b>.</p>
     <form onsubmit="saveSubrental(event, '${jobId}')" class="space-y-3 text-sm">
 
       ${state.pickupLocations.length > 0 ? `
@@ -1111,7 +1139,7 @@ function openSubrentalModal(jobId) {
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
           <label class="block text-xs font-semibold mb-1">Zumiet-Artikel / Material</label>
-          <input id="sr-item" list="subrental-items-datalist" required placeholder="z. B. 55 Zoll Display oder Traverse 3m" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="sr-item" list="subrental-items-datalist" required placeholder="z. B. 65 Zoll Display oder Traverse 3m" class="w-full px-3 py-2 border rounded-lg" />
           <datalist id="subrental-items-datalist">
             ${subItems.map(i => `<option value="${esc(i.name)}"></option>`).join('')}
           </datalist>
@@ -1176,22 +1204,53 @@ async function deleteSavedPickupLocation() {
 
 async function saveSubrental(e, jobId) {
   e.preventDefault();
+  const item_description = document.getElementById('sr-item').value.trim();
+  const qty = parseInt(document.getElementById('sr-qty').value, 10) || 1;
   const supplier_name = document.getElementById('sr-supplier').value.trim();
   const pickup_address = document.getElementById('sr-address').value.trim();
+  const pickup_datetime = document.getElementById('sr-time').value.trim();
   const notes = document.getElementById('sr-notes').value.trim();
   const saveLoc = document.getElementById('sr-save-loc').checked;
 
-  const payload = {
+  const { error } = await sb.from('job_subrentals').insert({
     job_id: jobId,
-    item_description: document.getElementById('sr-item').value.trim(),
-    qty: parseInt(document.getElementById('sr-qty').value, 10) || 1,
+    item_description,
+    qty,
     supplier_name,
     pickup_address,
-    pickup_datetime: document.getElementById('sr-time').value.trim(),
+    pickup_datetime,
     notes
-  };
-  const { error } = await sb.from('job_subrentals').insert(payload);
+  });
   if (error) return alert(error.message);
+
+  // Automatisch auch auf die Packliste setzen (oder Menge addieren, falls schon drauf)
+  const catItem = state.items.find(i => i.name.toLowerCase() === item_description.toLowerCase());
+  const existingLine = state.packlistLines.find(
+    l => l.job_id === jobId && l.line_name.toLowerCase() === item_description.toLowerCase()
+  );
+  const packNote = [pickup_datetime ? `Abholung: ${pickup_datetime}` : '', notes].filter(Boolean).join(' • ');
+
+  if (existingLine) {
+    await sb.from('job_packlist_lines').update({
+      qty_required: (existingLine.qty_required || 0) + qty,
+      storage_location: `${supplier_name} (${pickup_address})`,
+      notes: packNote || existingLine.notes
+    }).eq('id', existingLine.id);
+  } else {
+    const maxSort = state.packlistLines.filter(l => l.job_id === jobId).reduce((m, l) => Math.max(m, l.sort_order || 0), 0);
+    await sb.from('job_packlist_lines').insert({
+      job_id: jobId,
+      source_item_id: catItem ? catItem.id : null,
+      line_name: item_description,
+      qty_required: qty,
+      category: 'Zumietung',
+      storage_location: `${supplier_name} (${pickup_address})`,
+      notes: packNote,
+      show_on_print: true,
+      is_sub_item: false,
+      sort_order: maxSort + 10
+    });
+  }
 
   if (saveLoc && supplier_name && pickup_address) {
     const exists = state.pickupLocations.find(
@@ -1222,7 +1281,7 @@ async function deleteSubrental(srId) {
 }
 
 // ============================================================================
-// DRUCKFUNKTIONEN & EXCEL-EXPORT
+// DRUCKFUNKTIONEN & EXCEL-EXPORT (INKL. ZUMIETARTIKEL AUF DER PACKLISTE)
 // ============================================================================
 function triggerCustomPrint(html) {
   const area = document.getElementById('dedicated-print-area');
@@ -1243,7 +1302,9 @@ function printGeneralPage() {
 function printPacklist(jobId) {
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
-  const lines = state.packlistLines.filter(l => l.job_id === jobId && l.show_on_print !== false);
+  const allLines = state.packlistLines.filter(l => l.job_id === jobId && l.show_on_print !== false);
+  const ownLines = allLines.filter(l => !isLineSubrental(l));
+  const subLines = allLines.filter(l => isLineSubrental(l));
 
   const html = `
     <div class="border-b-2 border-black pb-3 mb-4 flex justify-between items-end">
@@ -1272,24 +1333,42 @@ function printPacklist(jobId) {
           <th class="w-14 text-center">Geladen</th>
           <th class="w-14 text-center">Menge</th>
           <th>Artikel / Komponente</th>
-          <th class="w-32">Lagerort</th>
+          <th class="w-36">Lagerort / Vermieter</th>
           <th class="w-48">Anmerkung</th>
         </tr>
       </thead>
       <tbody>
-        ${lines.map(l => `
+        ${ownLines.map(l => `
           <tr>
             <td class="text-center font-bold text-base">${l.packed ? '☑' : '☐'}</td>
             <td class="text-center font-bold text-base">${l.loaded ? '☑' : '☐'}</td>
             <td class="text-center font-bold">${l.qty_required}×</td>
-            <td style="${l.is_sub_item ? 'padding-left: 22px;' : ''}">
-              <div class="${l.is_sub_item ? '' : 'font-bold'}">${l.is_sub_item ? '↳ ' : ''}${esc(l.line_name)}</div>
+            <td>
+              <div class="font-bold">${esc(l.line_name)}</div>
               ${l.category ? `<div class="text-[10px] text-gray-600">${esc(l.category)}</div>` : ''}
             </td>
             <td>${esc(l.storage_location || '')}</td>
             <td>${esc(l.notes || '')}</td>
           </tr>
         `).join('')}
+
+        ${subLines.length > 0 ? `
+          <tr class="bg-gray-200">
+            <td colspan="6" class="font-extrabold uppercase text-[11px]">Zumietartikel (nach Abholung packen & laden)</td>
+          </tr>
+          ${subLines.map(l => `
+            <tr>
+              <td class="text-center font-bold text-base">${l.packed ? '☑' : '☐'}</td>
+              <td class="text-center font-bold text-base">${l.loaded ? '☑' : '☐'}</td>
+              <td class="text-center font-bold">${l.qty_required}×</td>
+              <td>
+                <div class="font-bold">[ZUMIETUNG] ${esc(l.line_name)}</div>
+              </td>
+              <td>${esc(l.storage_location || '')}</td>
+              <td>${esc(l.notes || '')}</td>
+            </tr>
+          `).join('')}
+        ` : ''}
       </tbody>
     </table>
   `;
@@ -1347,7 +1426,9 @@ function printSubrentals(jobId) {
 function exportPacklistExcel(jobId) {
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
-  const lines = state.packlistLines.filter(l => l.job_id === jobId);
+  const allLines = state.packlistLines.filter(l => l.job_id === jobId);
+  const ownLines = allLines.filter(l => !isLineSubrental(l));
+  const subLines = allLines.filter(l => isLineSubrental(l));
   const subrentals = state.jobSubrentals.filter(s => s.job_id === jobId);
 
   const wb = XLSX.utils.book_new();
@@ -1357,15 +1438,15 @@ function exportPacklistExcel(jobId) {
     ['Einsatzdatum:', job.event_date || '-'],
     ['Abholung / Hinweis:', job.pickup_info || '-'],
     [],
-    ['Gepackt', 'Geladen', 'Menge', 'Artikel / Komponente', 'Kategorie', 'Lagerort', 'Anmerkung', 'Im Druck']
+    ['Gepackt', 'Geladen', 'Menge', 'Artikel / Komponente', 'Kategorie', 'Lagerort / Vermieter', 'Anmerkung', 'Im Druck']
   ];
 
-  lines.forEach(l => {
+  ownLines.forEach(l => {
     packRows.push([
       l.packed ? 'Ja' : 'Nein',
       l.loaded ? 'Ja' : 'Nein',
       l.qty_required,
-      (l.is_sub_item ? '   ↳ ' : '') + l.line_name,
+      l.line_name,
       l.category || '',
       l.storage_location || '',
       l.notes || '',
@@ -1373,8 +1454,25 @@ function exportPacklistExcel(jobId) {
     ]);
   });
 
+  if (subLines.length > 0) {
+    packRows.push([]);
+    packRows.push(['--- ZUMIETARTIKEL ---']);
+    subLines.forEach(l => {
+      packRows.push([
+        l.packed ? 'Ja' : 'Nein',
+        l.loaded ? 'Ja' : 'Nein',
+        l.qty_required,
+        `[ZUMIETUNG] ${l.line_name}`,
+        l.category || 'Zumietung',
+        l.storage_location || '',
+        l.notes || '',
+        l.show_on_print !== false ? 'Ja' : 'Nein'
+      ]);
+    });
+  }
+
   const wsPack = XLSX.utils.aoa_to_sheet(packRows);
-  wsPack['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 44 }, { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 10 }];
+  wsPack['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 44 }, { wch: 18 }, { wch: 24 }, { wch: 30 }, { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, wsPack, 'Packliste');
 
   if (subrentals.length > 0) {
@@ -1396,7 +1494,7 @@ function exportPacklistExcel(jobId) {
     });
     const wsSr = XLSX.utils.aoa_to_sheet(srRows);
     wsSr['!cols'] = [{ wch: 10 }, { wch: 8 }, { wch: 30 }, { wch: 24 }, { wch: 30 }, { wch: 22 }, { wch: 28 }];
-    XLSX.utils.book_append_sheet(wb, wsSr, 'Zumietungen');
+    XLSX.utils.book_append_sheet(wb, wsSr, 'Abholschein_Zumietung');
   }
 
   const safeTitle = job.title.replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g, '_');
@@ -1413,10 +1511,10 @@ function openItemModal(itemId = null) {
   const comps = item ? state.bundleComponents.filter(c => c.parent_item_id === item.id) : [];
   const cfg = (item && item.dimension_config) || {
     min_width: 2,
-    max_width: 4.96,
-    step_width: 0.96,
-    base_item: 'Grundkoffer (2,00m x 2,48m)',
-    ext_item: 'Zusatzkissen (0,96m)',
+    max_width: 5,
+    step_width: 1,
+    base_item: 'Grundkoffer',
+    ext_item: 'Zusatzkissen / Erweiterung',
     reflector_item: 'Reflektor',
     graphic_item: 'Grafik'
   };
@@ -1454,7 +1552,7 @@ function openItemModal(itemId = null) {
         <input id="it-subrental" type="checkbox" ${item?.is_subrental ? 'checked' : ''} onchange="toggleSubrentalItemMode()" class="w-4 h-4 rounded text-amber-600" />
         <div>
           <div class="text-xs font-bold text-amber-950">Zumietartikel (taucht NICHT im eigenen Lagerbestand auf)</div>
-          <div class="text-[11px] text-amber-800">Erscheint nur in der Packlisten-Auswahl, damit er nach Abholung als Gepackt & Geladen abgehakt werden kann.</div>
+          <div class="text-[11px] text-amber-800">Erscheint nur in der Packlisten-Auswahl und unten auf der Packliste als Zumietartikel.</div>
         </div>
       </label>
 
@@ -1468,7 +1566,7 @@ function openItemModal(itemId = null) {
           <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2 border rounded-lg bg-white">
             <option value="single" ${(!item || item.item_type === 'single') ? 'selected' : ''}>Einzelartikel (Stückzahl)</option>
             <option value="bundle" ${item?.item_type === 'bundle' ? 'selected' : ''}>Komponenten-Set (feste Bestandteile)</option>
-            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: 2m / 2,96m + Reflektor + Grafik)</option>
+            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: Breite & Höhe 2,00m / 2,48m)</option>
           </select>
         </div>
       </div>
@@ -1479,15 +1577,15 @@ function openItemModal(itemId = null) {
       </div>
 
       <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-        <div class="text-xs font-bold text-blue-900">Maß- & Erweiterungsregel (Big LED UP):</div>
+        <div class="text-xs font-bold text-blue-900">Big LED UP Komponenten-Bezeichnungen (werden als eigene Zeilen auf der Packliste zusammengefasst):</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
           <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.01" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
           <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.01" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Schrittweite (m)</label><input id="dim-step" type="number" step="0.01" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Erweiterungs-Schritt (m)</label><input id="dim-step" type="number" step="0.01" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <div><label>Basiskomponente (2 m)</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Erweiterung (ab 2,96 m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Grundkoffer-Name</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Erweiterungs-Name (ab 3m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div><label>Reflektor-Bezeichnung</label><input id="dim-ref" value="${esc(cfg.reflector_item || 'Reflektor')}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
@@ -1604,10 +1702,10 @@ async function saveItem(e, itemId) {
   const item_type = document.getElementById('it-type').value;
   const dimension_config = item_type === 'dimension' ? {
     min_width: parseFloat(document.getElementById('dim-min').value) || 2,
-    max_width: parseFloat(document.getElementById('dim-max').value) || 4.96,
-    step_width: parseFloat(document.getElementById('dim-step').value) || 0.96,
-    base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer (2,00m x 2,48m)',
-    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen (0,96m)',
+    max_width: parseFloat(document.getElementById('dim-max').value) || 5,
+    step_width: parseFloat(document.getElementById('dim-step').value) || 1,
+    base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer',
+    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen / Erweiterung',
     reflector_item: document.getElementById('dim-ref').value.trim() || 'Reflektor',
     graphic_item: document.getElementById('dim-gfx').value.trim() || 'Grafik'
   } : null;
@@ -1667,12 +1765,14 @@ async function deleteItem(id) {
 }
 
 // ============================================================================
-// NEUE PACKLISTE MIT MEHRSTUFIGEN ZUBEHÖR-ABFRAGEN & AUTOMATISCHER ZUSAMMENFASSUNG
+// NEUE PACKLISTE MIT BIG LED UP (BREITE + HÖHE), ZUMIETUNG & ZUSAMMENFASSUNG
 // ============================================================================
 let draftBookings = [];
+let draftSubrentals = [];
 
 function openNewJobModal() {
   draftBookings = [];
+  draftSubrentals = [];
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
   openModal(`
     <h3 class="text-lg font-bold mb-3">Neue Packliste / Einsatz disponieren</h3>
@@ -1700,32 +1800,40 @@ function openNewJobModal() {
         <input id="job-pickup-info" placeholder="z. B. Abholung am Fr. 09:00 Uhr durch Markus" class="w-full px-3 py-2 border rounded-lg" />
       </div>
 
+      <!-- 1. ARTIKEL AUS BESTAND ODER ZUMIET-KATALOG -->
       <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-        <div class="text-xs font-bold text-slate-700">Artikel (Bestand & Zumietung) zur Packliste hinzufügen:</div>
+        <div class="text-xs font-bold text-slate-700">1. Artikel (Eigener Bestand & Zumietartikel) zur Packliste hinzufügen:</div>
         <div class="grid grid-cols-12 gap-2">
           <select id="job-item-select" onchange="onJobItemSelectChange()" class="col-span-8 px-2.5 py-2 border rounded-lg bg-white text-xs"></select>
           <input id="job-item-qty" type="number" min="1" value="1" title="Menge" class="col-span-2 px-2 py-2 border rounded-lg text-xs text-center" />
           <button type="button" onclick="addDraftBooking()" class="col-span-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">+ Dazu</button>
         </div>
 
-        <!-- Spezielle Optionen für Maß-Systeme wie Big LED UP -->
+        <!-- Spezielle Abfrage für Big LED UP: BREITE und HÖHE getrennt! -->
         <div id="job-dimension-options" class="hidden p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-xs">
-          <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen:</div>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="font-bold text-blue-900">📐 Big LED UP Rahmenmaß & Ausstattung wählen:</div>
+          <div class="grid grid-cols-3 gap-2">
             <div>
-              <label class="block font-semibold text-blue-900 mb-0.5">Breite des Systems</label>
+              <label class="block font-semibold text-blue-900 mb-0.5">Breite (m)</label>
               <select id="job-item-width" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
-                <option value="2">2,00 m (Grundkoffer)</option>
-                <option value="2.96" selected>2,96 m (Grundkoffer + 1× Zusatzkissen)</option>
-                <option value="3.96">3,96 m (Grundkoffer + 2× Zusatzkissen)</option>
-                <option value="4.96">4,96 m (Grundkoffer + 3× Zusatzkissen)</option>
+                <option value="2">2,00 m Breite</option>
+                <option value="3" selected>3,00 m Breite</option>
+                <option value="4">4,00 m Breite</option>
+                <option value="5">5,00 m Breite</option>
               </select>
             </div>
             <div>
-              <label class="block font-semibold text-blue-900 mb-0.5">Grafik (ein- oder beidseitig)</label>
+              <label class="block font-semibold text-blue-900 mb-0.5">Höhe (m)</label>
+              <select id="job-item-height" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+                <option value="2">2,00 m Höhe</option>
+                <option value="2.48" selected>2,48 m Höhe</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-blue-900 mb-0.5">Grafik</label>
               <select id="job-item-graphics" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
-                <option value="1" selected>1× Grafik (einseitig, passendes Maß)</option>
-                <option value="2">2× Grafik (beidseitig, passendes Maß)</option>
+                <option value="1" selected>1× Grafik (einseitig)</option>
+                <option value="2">2× Grafik (beidseitig)</option>
                 <option value="0">Ohne Grafik</option>
               </select>
             </div>
@@ -1742,6 +1850,29 @@ function openNewJobModal() {
         <div id="draft-bookings-list" class="space-y-1 pt-1"></div>
       </div>
 
+      <!-- 2. DIREKT ZUMIETUNG MIT ABHOLADRESSE MIT ANLEGEN (OPTIONAL) -->
+      <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2 text-xs">
+        <div class="font-bold text-amber-950">2. Zumietung mit Abholadresse direkt mit einplanen (optional):</div>
+        ${state.pickupLocations.length > 0 ? `
+          <select id="draft-sr-saved" onchange="applyDraftSavedLocation()" class="w-full px-2 py-1.5 border border-amber-300 rounded bg-white font-semibold">
+            <option value="">-- Gespeicherte Abholadresse wählen oder unten neu eintippen --</option>
+            ${state.pickupLocations.map(loc => `<option value="${loc.id}">${esc(loc.supplier_name)} – ${esc(loc.pickup_address)}</option>`).join('')}
+          </select>
+        ` : ''}
+        <div class="grid grid-cols-12 gap-1.5">
+          <input id="draft-sr-item" placeholder="Zumiet-Artikel (z. B. 65 Zoll TV)" class="col-span-5 px-2 py-1.5 border rounded bg-white" />
+          <input id="draft-sr-qty" type="number" min="1" value="1" class="col-span-1 px-1 py-1.5 border rounded bg-white text-center" />
+          <input id="draft-sr-supplier" placeholder="Vermieter / Firma" class="col-span-3 px-2 py-1.5 border rounded bg-white" />
+          <input id="draft-sr-address" placeholder="Abholadresse" class="col-span-3 px-2 py-1.5 border rounded bg-white" />
+        </div>
+        <div class="grid grid-cols-12 gap-1.5">
+          <input id="draft-sr-time" placeholder="Abholzeit (z. B. Do. 14:00)" class="col-span-5 px-2 py-1.5 border rounded bg-white" />
+          <input id="draft-sr-notes" placeholder="Abholer / Notiz" class="col-span-5 px-2 py-1.5 border rounded bg-white" />
+          <button type="button" onclick="addDraftSubrental()" class="col-span-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold">+ Zumiet.</button>
+        </div>
+        <div id="draft-subrentals-list" class="space-y-1"></div>
+      </div>
+
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
         <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Packliste generieren</button>
@@ -1751,11 +1882,46 @@ function openNewJobModal() {
   refreshJobItemPicker();
 }
 
+function applyDraftSavedLocation() {
+  const id = document.getElementById('draft-sr-saved')?.value;
+  const loc = state.pickupLocations.find(x => x.id === id);
+  if (!loc) return;
+  document.getElementById('draft-sr-supplier').value = loc.supplier_name || '';
+  document.getElementById('draft-sr-address').value = loc.pickup_address || '';
+  if (loc.default_notes) document.getElementById('draft-sr-notes').value = loc.default_notes;
+}
+
+function addDraftSubrental() {
+  const item = document.getElementById('draft-sr-item').value.trim();
+  const qty = parseInt(document.getElementById('draft-sr-qty').value, 10) || 1;
+  const supplier = document.getElementById('draft-sr-supplier').value.trim();
+  const address = document.getElementById('draft-sr-address').value.trim();
+  const time = document.getElementById('draft-sr-time').value.trim();
+  const notes = document.getElementById('draft-sr-notes').value.trim();
+  if (!item) return alert('Bitte zuerst den Zumiet-Artikel eintragen.');
+
+  draftSubrentals.push({ item, qty, supplier: supplier || 'Zumietung', address, time, notes });
+  document.getElementById('draft-sr-item').value = '';
+  document.getElementById('draft-sr-qty').value = '1';
+  renderDraftSubrentals();
+}
+
+function renderDraftSubrentals() {
+  const el = document.getElementById('draft-subrentals-list');
+  if (!el) return;
+  el.innerHTML = draftSubrentals.map((s, idx) => `
+    <div class="flex items-center justify-between bg-white px-2.5 py-1 rounded border border-amber-300 text-xs">
+      <span><b class="text-amber-800">[ZUMIETUNG] ${s.qty}× ${esc(s.item)}</b> • ${esc(s.supplier)} (${esc(s.address || 'Abholung')})</span>
+      <button type="button" onclick="draftSubrentals.splice(${idx}, 1); renderDraftSubrentals();" class="text-red-500 font-bold">✕</button>
+    </div>
+  `).join('');
+}
+
 function refreshJobItemPicker() {
   const tid = document.getElementById('job-tenant').value;
   const items = state.items.filter(i => i.tenant_id === tid);
   const sel = document.getElementById('job-item-select');
-  sel.innerHTML = items.map(i => `<option value="${i.id}">${i.is_subrental ? '[Zumietung] ' : ''}${esc(i.name)} (${i.category})</option>`).join('');
+  sel.innerHTML = items.map(i => `<option value="${i.id}">${i.is_subrental ? '[ZUMIETUNG] ' : ''}${esc(i.name)} (${i.category})</option>`).join('');
   onJobItemSelectChange();
 }
 
@@ -1791,7 +1957,6 @@ function renderDynamicDependencyQuestions(item) {
   rules.forEach((_, rIdx) => onDynamicRuleOptionChange(rIdx));
 }
 
-// Prüft, ob die gewählte Antwort einen Folge-Artikel (z. B. Audipack) auswählt, der wiederum eigene Fragen (Ablage / Rollen) hat!
 function onDynamicRuleOptionChange(rIdx) {
   const itemId = document.getElementById('job-item-select').value;
   const item = state.items.find(i => i.id === itemId);
@@ -1804,7 +1969,6 @@ function onDynamicRuleOptionChange(rIdx) {
   const opt = rule.options?.[optIdx];
   const chosenNames = (opt?.items || []).map(x => x.name.toLowerCase());
 
-  // Suche passende Folge-Artikel im selben Bereich (z. B. "Audipack")
   const tid = document.getElementById('job-tenant').value;
   const linkedItems = state.items.filter(it =>
     it.tenant_id === tid &&
@@ -1842,10 +2006,10 @@ function addDraftBooking() {
   const qty = parseInt(document.getElementById('job-item-qty').value, 10) || 1;
   const isDim = item.item_type === 'dimension';
   const width = isDim ? parseFloat(document.getElementById('job-item-width').value) : null;
+  const height = isDim ? parseFloat(document.getElementById('job-item-height').value) : null;
   const graphicSides = isDim ? parseInt(document.getElementById('job-item-graphics').value, 10) : 0;
   const gfxOnPrint = isDim ? document.getElementById('job-gfx-on-print').checked : true;
 
-  // Gewählte Zubehör-Artikel aus den dynamischen Fragen sammeln
   const extraItems = [];
   const selectedLabels = [];
   const rules = Array.isArray(item.dependency_rules) ? item.dependency_rules : [];
@@ -1863,7 +2027,6 @@ function addDraftBooking() {
     }
   });
 
-  // Auch 2. Stufe (z. B. Audipack -> Ablage / Rollen) einsammeln
   document.querySelectorAll('.dyn-nested-select').forEach(sel => {
     const linkedId = sel.getAttribute('data-linked-item');
     const srIdx = parseInt(sel.getAttribute('data-sub-rule'), 10);
@@ -1878,7 +2041,7 @@ function addDraftBooking() {
     }
   });
 
-  draftBookings.push({ item, qty, width, graphicSides, gfxOnPrint, extraItems, selectedLabels });
+  draftBookings.push({ item, qty, width, height, graphicSides, gfxOnPrint, extraItems, selectedLabels });
   renderDraftBookings();
 }
 
@@ -1888,14 +2051,15 @@ function renderDraftBookings() {
     let extraLabel = '';
     if (b.width) {
       const wStr = String(b.width).replace('.', ',');
+      const hStr = String(b.height || 2.48).replace('.', ',');
       const gfxTxt = b.graphicSides === 2 ? ' • 2× Grafik' : b.graphicSides === 1 ? ' • 1× Grafik' : '';
-      extraLabel = `<span class="text-blue-700 font-bold">(${wStr} m + Reflektor${gfxTxt})</span>`;
+      extraLabel = `<span class="text-blue-700 font-bold">(${wStr} m Breite × ${hStr} m Höhe${gfxTxt})</span>`;
     } else if (b.selectedLabels && b.selectedLabels.length > 0) {
       extraLabel = `<span class="text-amber-700 font-semibold">[${esc(b.selectedLabels.join(', '))}]</span>`;
     }
     return `
       <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border text-xs">
-        <span><b>${b.qty}×</b> ${b.item.is_subrental ? '<span class="text-amber-700 font-bold">[Zumietung]</span> ' : ''}${esc(b.item.name)} ${extraLabel}</span>
+        <span><b>${b.qty}×</b> ${b.item.is_subrental ? '<span class="text-amber-700 font-bold">[ZUMIETUNG]</span> ' : ''}${esc(b.item.name)} ${extraLabel}</span>
         <button type="button" onclick="draftBookings.splice(${idx}, 1); renderDraftBookings();" class="text-red-500 font-bold">✕</button>
       </div>
     `;
@@ -1904,7 +2068,9 @@ function renderDraftBookings() {
 
 async function saveJob(e) {
   e.preventDefault();
-  if (draftBookings.length === 0) return alert('Bitte mindestens einen Artikel zur Packliste hinzufügen.');
+  if (draftBookings.length === 0 && draftSubrentals.length === 0) {
+    return alert('Bitte mindestens einen Artikel oder eine Zumietung zur Packliste hinzufügen.');
+  }
 
   const tenant_id = document.getElementById('job-tenant').value;
   const title = document.getElementById('job-title').value.trim();
@@ -1920,17 +2086,19 @@ async function saveJob(e) {
   }).select().single();
   if (error) return alert(error.message);
 
-  const bookingRows = draftBookings.map(b => ({
-    job_id: job.id,
-    item_id: b.item.id,
-    item_name: b.item.name,
-    qty: b.qty,
-    selected_width: b.width
-  }));
-  await sb.from('job_bookings').insert(bookingRows);
+  if (draftBookings.length > 0) {
+    const bookingRows = draftBookings.map(b => ({
+      job_id: job.id,
+      item_id: b.item.id,
+      item_name: b.item.name,
+      qty: b.qty,
+      selected_width: b.width
+    }));
+    await sb.from('job_bookings').insert(bookingRows);
+  }
 
   // =========================================================================
-  // POSITIONEN ERZEUGEN & GLEICHE POSITIONEN AUTOMATISCH ZUSAMMENFASSEN!
+  // POSITIONEN ERZEUGEN (ALLE EIGENSTÄNDIG -> GLEICHE POSITIONEN ZUSAMMENFASSEN)
   // =========================================================================
   const rawLines = [];
   let orderCounter = 10;
@@ -1946,14 +2114,15 @@ async function saveJob(e) {
     if (b.item.item_type === 'dimension' && b.item.dimension_config) {
       const cfg = b.item.dimension_config;
       const w = b.width || cfg.min_width || 2;
+      const h = b.height || 2.48;
       const wLabel = `${String(w).replace('.', ',')} m`;
-      const extraMeters = Math.max(0, w - (cfg.min_width || 2));
-      const extCount = Math.round(extraMeters / (cfg.step_width || 0.96));
+      const hLabel = `${String(h).replace('.', ',')} m`;
+      const extraSteps = Math.max(0, Math.round((w - (cfg.min_width || 2)) / (cfg.step_width || 1)));
 
-      // Hauptzeile oben: Big LED UP (z. B. 2,96 m)
+      // 1. Hauptzeile oben: Big LED UP (Breite x Höhe)
       rawLines.push({
         source_item_id: b.item.id,
-        line_name: `${b.item.name} (${wLabel})`,
+        line_name: `${b.item.name} (${wLabel} Breite × ${hLabel} Höhe)`,
         category: b.item.category,
         qty_required: b.qty,
         storage_location: defaultLoc,
@@ -1962,7 +2131,7 @@ async function saveJob(e) {
         sort_order: orderCounter++
       });
 
-      // Darunter eingerückt: Grundkoffer
+      // 2. Grundkoffer als eigener Artikel (wird über alle Sets addiert)
       rawLines.push({
         source_item_id: b.item.id,
         line_name: `${cfg.base_item}`,
@@ -1970,25 +2139,25 @@ async function saveJob(e) {
         qty_required: b.qty,
         storage_location: defaultLoc,
         show_on_print: true,
-        is_sub_item: true,
+        is_sub_item: false,
         sort_order: orderCounter++
       });
 
-      // Darunter eingerückt: Zusatzkissen
-      if (extCount > 0) {
+      // 3. Zusatzkissen / Erweiterung falls Breite > Grundbreite
+      if (extraSteps > 0) {
         rawLines.push({
           source_item_id: b.item.id,
           line_name: `${cfg.ext_item}`,
           category: b.item.category,
-          qty_required: b.qty * extCount,
+          qty_required: b.qty * extraSteps,
           storage_location: defaultLoc,
           show_on_print: true,
-          is_sub_item: true,
+          is_sub_item: false,
           sort_order: orderCounter++
         });
       }
 
-      // Darunter eingerückt: Reflektor im passenden Maß
+      // 4. Reflektor in der jeweiligen Breite (wird bei z. B. 4x 3m zu "4x Reflektor (3,00 m)")
       rawLines.push({
         source_item_id: b.item.id,
         line_name: `${cfg.reflector_item || 'Reflektor'} (${wLabel})`,
@@ -1996,21 +2165,21 @@ async function saveJob(e) {
         qty_required: b.qty,
         storage_location: defaultLoc,
         show_on_print: true,
-        is_sub_item: true,
+        is_sub_item: false,
         sort_order: orderCounter++
       });
 
-      // Darunter eingerückt: Grafik (1x einseitig oder 2x beidseitig)
+      // 5. Grafik im gewählten Maß (Breite x Höhe)
       if (b.graphicSides > 0) {
         const sideText = b.graphicSides === 2 ? 'beidseitig' : 'einseitig';
         rawLines.push({
           source_item_id: b.item.id,
-          line_name: `${cfg.graphic_item || 'Grafik'} ${wLabel} (${sideText})`,
+          line_name: `${cfg.graphic_item || 'Grafik'} (${wLabel} × ${hLabel}, ${sideText})`,
           category: 'Grafik',
           qty_required: b.qty * b.graphicSides,
           storage_location: '',
           show_on_print: b.gfxOnPrint,
-          is_sub_item: true,
+          is_sub_item: false,
           sort_order: orderCounter++
         });
       }
@@ -2034,7 +2203,7 @@ async function saveJob(e) {
           qty_required: b.qty * c.qty_per_unit,
           storage_location: defaultLoc,
           show_on_print: true,
-          is_sub_item: true,
+          is_sub_item: false,
           sort_order: orderCounter++
         });
       });
@@ -2051,7 +2220,7 @@ async function saveJob(e) {
       });
     }
 
-    // Gewählte Zubehör-Verknüpfungen (z. B. Audipack, Ablage, Rollen, HDMI-Kabel, Strom) hinzufügen
+    // Gewählte Zubehör-Verknüpfungen (Audipack, Ablage, Rollen, HDMI-Kabel, Strom)
     (b.extraItems || []).forEach(ex => {
       const catItem = findCatalogItemByName(ex.name);
       rawLines.push({
@@ -2067,10 +2236,49 @@ async function saveJob(e) {
     });
   }
 
-  // Gleiche Positionen (gleicher Name + gleiche Ebene) zusammenfassen und Mengen addieren!
+  // Direkt im Modal erfasste Zumietungen ebenfalls speichern & auf Packliste setzen
+  for (const sr of draftSubrentals) {
+    await sb.from('job_subrentals').insert({
+      job_id: job.id,
+      item_description: sr.item,
+      qty: sr.qty,
+      supplier_name: sr.supplier,
+      pickup_address: sr.address,
+      pickup_datetime: sr.time,
+      notes: sr.notes
+    });
+
+    if (sr.supplier && sr.address) {
+      const exists = state.pickupLocations.find(
+        l => l.supplier_name.toLowerCase() === sr.supplier.toLowerCase() && l.pickup_address.toLowerCase() === sr.address.toLowerCase()
+      );
+      if (!exists) {
+        await sb.from('pickup_locations').insert({
+          supplier_name: sr.supplier,
+          pickup_address: sr.address,
+          default_notes: sr.notes
+        });
+      }
+    }
+
+    const catItem = findCatalogItemByName(sr.item);
+    rawLines.push({
+      source_item_id: catItem ? catItem.id : null,
+      line_name: sr.item,
+      category: 'Zumietung',
+      qty_required: sr.qty,
+      storage_location: sr.address ? `${sr.supplier} (${sr.address})` : sr.supplier,
+      notes: [sr.time ? `Abholung: ${sr.time}` : '', sr.notes].filter(Boolean).join(' • '),
+      show_on_print: true,
+      is_sub_item: false,
+      sort_order: orderCounter++
+    });
+  }
+
+  // Gleiche Positionen zusammenfassen und Gesamtanzahl addieren!
   const mergedMap = new Map();
   for (const line of rawLines) {
-    const key = `${line.is_sub_item ? 'SUB' : 'MAIN'}::${line.line_name.trim().toLowerCase()}`;
+    const key = `${line.category === 'Zumietung' ? 'SUBRENT' : 'OWN'}::${line.line_name.trim().toLowerCase()}`;
     if (mergedMap.has(key)) {
       mergedMap.get(key).qty_required += line.qty_required;
     } else {
@@ -2317,7 +2525,7 @@ function renderStocktake() {
 }
 
 // ============================================================================
-// ALLGEMEINE MODALS & BEISPIELDATEN (INKL. AUDIPACK, TV & ZUMIETUNG)
+// ALLGEMEINE MODALS & BEISPIELDATEN
 // ============================================================================
 function openModal(html) {
   document.getElementById('modal-content').innerHTML = html;
@@ -2690,14 +2898,14 @@ async function seedExampleData() {
       category: 'LED-Systeme',
       storage_location: 'Halle 1 / Tor 2',
       item_type: 'dimension',
-      total_qty: 2,
+      total_qty: 4,
       is_dguv: true,
       dimension_config: {
         min_width: 2,
-        max_width: 4.96,
-        step_width: 0.96,
-        base_item: 'Grundkoffer (2,00m x 2,48m)',
-        ext_item: 'Zusatzkissen (0,96m)',
+        max_width: 5,
+        step_width: 1,
+        base_item: 'Grundkoffer',
+        ext_item: 'Zusatzkissen / Erweiterung',
         reflector_item: 'Reflektor',
         graphic_item: 'Grafik'
       }
