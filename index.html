@@ -2,16 +2,87 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Lager, Packliste, DGUV V3 & Werkstatt</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lager & Werkstatt" />
+  <title>Lager & Werkstatt</title>
+
+  <!-- Dynamisches Web-App-Manifest & App-Icon für echte Android/Tablet App-Installation -->
+  <script>
+    (function setupPwaManifest() {
+      const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#4f46e5"/>
+            <stop offset="100%" stop-color="#1e1b4b"/>
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="110" fill="url(#g)"/>
+        <text x="256" y="305" font-family="system-ui,-apple-system,sans-serif" font-size="210" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-6">LW</text>
+        <rect x="116" y="365" width="280" height="22" rx="11" fill="#818cf8"/>
+      </svg>`;
+      const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg);
+
+      const appleLink = document.createElement("link");
+      appleLink.rel = "apple-touch-icon";
+      appleLink.href = iconUrl;
+      document.head.appendChild(appleLink);
+
+      const manifest = {
+        name: "Lager & Werkstatt",
+        short_name: "Lager & W.",
+        description: "Bestand, Packlisten, DGUV V3 & Werkstatt",
+        start_url: location.href,
+        scope: location.origin + location.pathname.replace(/[^/]*$/, ""),
+        display: "standalone",
+        orientation: "any",
+        background_color: "#f1f5f9",
+        theme_color: "#0f172a",
+        icons: [
+          { src: iconUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
+          { src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
+        ]
+      };
+
+      const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+      const manifestLink = document.createElement("link");
+      manifestLink.rel = "manifest";
+      manifestLink.href = URL.createObjectURL(manifestBlob);
+      document.head.appendChild(manifestLink);
+    })();
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
+    /* Verhindert ungewolltes Auto-Zoomen auf Smartphones beim Antippen von Eingabefeldern */
+    @media (max-width: 768px) {
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+      body {
+        padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+      }
+    }
+
+    /* Größere, fingerfreundliche Checkboxen auf Touch-Geräten */
+    input[type="checkbox"] {
+      min-width: 1.25rem;
+      min-height: 1.25rem;
+    }
+
+    /* Sauberes horizontales Scrollen ohne sichtbare Balken bei Tabs */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
     @media print {
       .no-print { display: none !important; }
       .print-only { display: block !important; }
-      body { background: white !important; color: black !important; font-size: 10.5pt; }
+      body { background: white !important; color: black !important; font-size: 10.5pt; padding-bottom: 0 !important; }
       .print-table th, .print-table td { border: 1px solid #333 !important; padding: 5px 7px !important; }
       .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
       body.custom-print-mode #app-shell,
@@ -30,7 +101,7 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
+<body class="bg-slate-100 text-slate-800 min-h-screen font-sans antialiased selection:bg-indigo-200">
 
   <!-- Spezieller DIN-A4 Druckbereich für Packliste oder Zumietungs-Abholschein -->
   <div id="dedicated-print-area" class="p-4 max-w-4xl mx-auto"></div>
@@ -40,12 +111,18 @@
   <!-- ===================================================================== -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 no-print">
     <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border border-slate-200">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow">LW</div>
-        <div>
-          <h1 class="text-xl font-bold text-slate-900">Lager & Werkstatt</h1>
-          <p class="text-xs text-slate-500">Bestand • Packlisten • DGUV V3 • Reparatur</p>
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow">LW</div>
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Lager & Werkstatt</h1>
+            <p class="text-xs text-slate-500">Bestand • Packlisten • DGUV V3 • Reparatur</p>
+          </div>
         </div>
+        <button type="button" id="pwa-install-btn-login" onclick="triggerPwaInstall()"
+                class="hidden px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold shrink-0">
+          📲 Als App
+        </button>
       </div>
 
       <div id="config-box" class="hidden mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
@@ -56,7 +133,7 @@
         <div class="space-y-2.5">
           <input id="cfg-url" type="url" placeholder="https://xxxx.supabase.co" class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
           <input id="cfg-key" type="text" placeholder="sb_publishable_..." class="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs" />
-          <button type="button" onclick="saveConfig()" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Überschreiben & speichern</button>
+          <button type="button" onclick="saveConfig()" class="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold">Überschreiben & speichern</button>
         </div>
       </div>
 
@@ -64,28 +141,31 @@
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Benutzername</label>
           <input id="login-user" type="text" required placeholder="z. B. daniel, patrick, markus" autocomplete="username"
-                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                 class="w-full px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
           <p class="text-[11px] text-slate-400 mt-1">Nur den Namen eingeben (<code>@lager.intern</code> wird automatisch ergänzt).</p>
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Passwort</label>
           <div class="relative">
             <input id="login-pass" type="password" required placeholder="Passwort eingeben" autocomplete="current-password"
-                   class="w-full pl-3.5 pr-24 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                   class="w-full pl-3.5 pr-24 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
             <button type="button" id="toggle-pass-btn" onclick="togglePasswordVisibility()"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
+                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
               👁️ Zeigen
             </button>
           </div>
         </div>
         <div id="login-error" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs"></div>
-        <button type="submit" id="login-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow transition">
+        <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition">
           Einloggen
         </button>
       </form>
-      <div class="mt-4 text-center">
-        <button type="button" onclick="document.getElementById('config-box').classList.toggle('hidden')" class="text-[11px] text-slate-400 hover:text-slate-600">
-          Verbindungsdaten anzeigen
+      <div class="mt-4 text-center flex items-center justify-center gap-4">
+        <button type="button" onclick="document.getElementById('config-box').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-slate-600 py-1">
+          Verbindungsdaten
+        </button>
+        <button type="button" onclick="openInstallHelpModal()" class="text-xs text-indigo-600 hover:underline font-semibold py-1">
+          📲 Handy-App Anleitung
         </button>
       </div>
     </div>
@@ -96,26 +176,33 @@
   <!-- ===================================================================== -->
   <div id="app-shell" class="hidden">
     <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md no-print">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold">LW</div>
+      <div class="max-w-7xl mx-auto px-3 md:px-4 py-2.5 md:py-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold shrink-0">LW</div>
           <div>
-            <div class="font-bold leading-tight">Lager & Werkstatt</div>
-            <div class="text-[11px] text-slate-400">Angemeldet als: <span id="current-user-label" class="text-indigo-300 font-semibold"></span></div>
+            <div class="font-bold leading-tight text-sm md:text-base">Lager & Werkstatt</div>
+            <div class="text-[11px] text-slate-400">User: <span id="current-user-label" class="text-indigo-300 font-semibold"></span></div>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
-          <label class="text-xs text-slate-300">Bestand:</label>
-          <select id="global-tenant-filter" onchange="onTenantFilterChange()" class="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-1.5 font-medium">
+        <div class="flex items-center gap-1.5 md:gap-2 flex-wrap">
+          <button type="button" id="pwa-install-btn-header" onclick="triggerPwaInstall()"
+                  class="hidden px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow">
+            📲 App installieren
+          </button>
+          <select id="global-tenant-filter" onchange="onTenantFilterChange()" aria-label="Bestandsbereich"
+                  class="bg-slate-800 border border-slate-700 text-white text-xs md:text-sm rounded-lg px-2.5 py-1.5 font-medium max-w-[165px] md:max-w-none">
             <option value="ALL">Alle Bestände</option>
           </select>
-          <button onclick="openNewTenantModal()" title="Neuen Bestandsbereich anlegen" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold">+ Bereich</button>
-          <button onclick="handleLogout()" class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-200 border border-red-500/30 rounded-lg text-xs font-semibold ml-1">Logout</button>
+          <button onclick="openNewTenantModal()" title="Neuen Bestandsbereich anlegen"
+                  class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold">+ Bereich</button>
+          <button onclick="handleLogout()" title="Abmelden"
+                  class="px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-200 border border-red-500/30 rounded-lg text-xs font-semibold">Logout</button>
         </div>
       </div>
 
-      <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-slate-800 text-sm">
+      <!-- Desktop & Tablet Top-Navigation -->
+      <nav class="hidden md:flex max-w-7xl mx-auto px-4 gap-1 overflow-x-auto no-scrollbar border-t border-slate-800 text-sm">
         <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-indigo-400 text-white whitespace-nowrap">1. Bestand & Artikel</button>
         <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Zumietung</button>
         <button onclick="switchTab('workshop')" id="tab-btn-workshop" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
@@ -126,19 +213,45 @@
       </nav>
     </header>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <!-- Feste Smartphone Bottom-Navigation (für Daumen-Bedienung unterwegs) -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-900 text-white border-t border-slate-800 grid grid-cols-5 text-[11px] font-semibold no-print"
+         style="padding-bottom: env(safe-area-inset-bottom);">
+      <button onclick="switchTab('inventory')" id="mob-tab-inventory" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-indigo-300 bg-slate-800/80">
+        <span class="text-base leading-none">📦</span>
+        <span>Bestand</span>
+      </button>
+      <button onclick="switchTab('jobs')" id="mob-tab-jobs" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
+        <span class="text-base leading-none">📋</span>
+        <span>Packliste</span>
+      </button>
+      <button onclick="switchTab('workshop')" id="mob-tab-workshop" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400 relative">
+        <span class="text-base leading-none">🔧</span>
+        <span>Werkstatt</span>
+        <span id="workshop-badge-mob" class="absolute top-1 right-2.5 px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-slate-900 font-extrabold">0</span>
+      </button>
+      <button onclick="switchTab('dguv')" id="mob-tab-dguv" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
+        <span class="text-base leading-none">⚡</span>
+        <span>DGUV</span>
+      </button>
+      <button onclick="switchTab('stocktake')" id="mob-tab-stocktake" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
+        <span class="text-base leading-none">🖨️</span>
+        <span>Inventur</span>
+      </button>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-3 sm:p-4 md:p-6">
       <!-- ================================================================= -->
       <!-- TAB 1: BESTAND & ARTIKEL                                          -->
       <!-- ================================================================= -->
-      <section id="view-inventory" class="space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex flex-wrap items-center gap-2 flex-1">
-              <input id="inv-search" oninput="renderInventory()" type="text" placeholder="Artikel, Kategorie, Lagerplatz suchen..." class="px-3.5 py-2 border border-slate-300 rounded-lg text-sm w-full sm:w-64" />
-              <select id="inv-cat-filter" onchange="renderInventory()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+      <section id="view-inventory" class="space-y-3 md:space-y-4">
+        <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
+              <input id="inv-search" oninput="renderInventory()" type="search" placeholder="🔍 Artikel, Kategorie, Platz..." class="px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm w-full" />
+              <select id="inv-cat-filter" onchange="renderInventory()" class="px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white">
                 <option value="ALL">Alle Kategorien</option>
               </select>
-              <select id="inv-type-filter" onchange="renderInventory()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+              <select id="inv-type-filter" onchange="renderInventory()" class="px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white">
                 <option value="OWN_ALL">Eigener Bestand (ohne Zumietung)</option>
                 <option value="SUBRENTAL_ONLY">Zumietartikel (für Packliste)</option>
                 <option value="ALL_INC_SUB">Alle inkl. Zumietartikel</option>
@@ -151,19 +264,19 @@
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
-              <button id="seed-btn" onclick="seedExampleData()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-sm font-semibold">
-                ✨ Beispieldaten laden
+              <button id="seed-btn" onclick="seedExampleData()" class="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs md:text-sm font-semibold">
+                ✨ Beispieldaten
               </button>
-              <button onclick="openItemModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
-                + Neuer Artikel / Zumietartikel
+              <button onclick="openItemModal()" class="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm text-center">
+                + Neuer Artikel / Zumietung
               </button>
             </div>
           </div>
 
-          <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-semibold text-slate-500">Sortieren nach:</span>
-              <select id="inv-sort" onchange="onSortSelectChange()" class="px-3 py-1.5 border border-slate-300 rounded-lg bg-slate-50 font-semibold text-slate-700">
+          <div class="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div class="flex items-center gap-2 flex-wrap flex-1 min-w-[200px]">
+              <span class="font-semibold text-slate-500 hidden sm:inline">Sortieren:</span>
+              <select id="inv-sort" onchange="onSortSelectChange()" class="px-3 py-2 border border-slate-300 rounded-xl bg-slate-50 font-semibold text-slate-700 flex-1 sm:flex-none">
                 <option value="name:asc">Artikelname (A → Z)</option>
                 <option value="name:desc">Artikelname (Z → A)</option>
                 <option value="category:asc">Kategorie (A → Z)</option>
@@ -172,18 +285,18 @@
                 <option value="avail:asc">Verfügbar (wenigste zuerst)</option>
                 <option value="avail:desc">Verfügbar (meiste zuerst)</option>
                 <option value="total:desc">Gesamtbestand (höchster zuerst)</option>
-                <option value="dguv:asc">DGUV-Status (Fällige / fehlende zuerst)</option>
+                <option value="dguv:asc">DGUV-Status (Fällige zuerst)</option>
               </select>
-              <span id="inv-count-label" class="text-slate-400 ml-1"></span>
+              <span id="inv-count-label" class="text-slate-400"></span>
             </div>
 
-            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50">
+            <div class="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-50 shrink-0">
               <button type="button" id="view-mode-list" onclick="setInventoryViewMode('list')"
-                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 transition">
                 ☰ Liste
               </button>
               <button type="button" id="view-mode-grid" onclick="setInventoryViewMode('grid')"
-                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
                 ⊞ Kacheln
               </button>
             </div>
@@ -196,25 +309,25 @@
       <!-- ================================================================= -->
       <!-- TAB 2: PACKLISTEN-ÜBERSICHT (LISTE / KACHELN, INLINE ODER FENSTER)-->
       <!-- ================================================================= -->
-      <section id="view-jobs" class="hidden space-y-5">
-        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <section id="view-jobs" class="hidden space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
-            <h2 class="font-bold text-lg text-slate-900">Packlisten-Übersicht & Zumietungen</h2>
-            <p class="text-xs text-slate-500">Klicke auf eine Packliste, um sie im Hauptfenster zu öffnen – oder nutze <b>„🗔 Fenster“</b> für ein separates Fenster.</p>
+            <h2 class="font-bold text-base md:text-lg text-slate-900">Packlisten & Zumietungen</h2>
+            <p class="text-xs text-slate-500">Tippe eine Packliste an, um Positionen abzuhaken oder zu packen.</p>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+          <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+            <div class="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-50 text-xs">
               <button type="button" id="jobs-view-mode-list" onclick="setJobsViewMode('list')"
-                      class="px-3 py-2 font-bold flex items-center gap-1.5 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 transition">
                 ☰ Liste
               </button>
               <button type="button" id="jobs-view-mode-grid" onclick="setJobsViewMode('grid')"
-                      class="px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
                 ⊞ Kacheln
               </button>
             </div>
-            <button onclick="openNewJobModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
-              + Neue Packliste anlegen
+            <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow">
+              + Neue Packliste
             </button>
           </div>
         </div>
@@ -225,27 +338,27 @@
       <!-- TAB 3: WERKSTATT & ARCHIV (MIT LISTE / KACHELN UMSCHALTER)        -->
       <!-- ================================================================= -->
       <section id="view-workshop" class="hidden space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap gap-1.5">
-            <button onclick="setWorkshopFilter('OPEN_ALL')" id="ws-filter-OPEN_ALL" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white">Alle offenen Defekte</button>
-            <button onclick="setWorkshopFilter('Lager')" id="ws-filter-Lager" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Lager</button>
-            <button onclick="setWorkshopFilter('Büro G7')" id="ws-filter-Büro G7" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Büro G7 (Patrick/Markus)</button>
-            <button onclick="setWorkshopFilter('Daniel Werkstatt')" id="ws-filter-Daniel Werkstatt" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Daniel Werkstatt</button>
-            <button onclick="setWorkshopFilter('ARCHIVED')" id="ws-filter-ARCHIVED" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Archiv (6 Monate Foto-Aufbewahrung)</button>
+        <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+            <button onclick="setWorkshopFilter('OPEN_ALL')" id="ws-filter-OPEN_ALL" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white whitespace-nowrap">Alle offenen</button>
+            <button onclick="setWorkshopFilter('Lager')" id="ws-filter-Lager" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Lager</button>
+            <button onclick="setWorkshopFilter('Büro G7')" id="ws-filter-Büro G7" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Büro G7</button>
+            <button onclick="setWorkshopFilter('Daniel Werkstatt')" id="ws-filter-Daniel Werkstatt" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Daniel Werkstatt</button>
+            <button onclick="setWorkshopFilter('ARCHIVED')" id="ws-filter-ARCHIVED" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Archiv (6 Mon.)</button>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+          <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+            <div class="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-50 text-xs">
               <button type="button" id="ws-view-mode-list" onclick="setWorkshopViewMode('list')"
-                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 transition">
                 ☰ Liste
               </button>
               <button type="button" id="ws-view-mode-grid" onclick="setWorkshopViewMode('grid')"
-                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
                 ⊞ Kacheln
               </button>
             </div>
-            <button onclick="openDefectModal(null)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm">
-              + Defekt direkt melden (mit Handy-Foto)
+            <button onclick="openDefectModal(null)" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm">
+              + Defekt + Foto melden
             </button>
           </div>
         </div>
@@ -256,24 +369,24 @@
       <!-- TAB 4: DGUV V3 / BENNING ST 755+ (MIT LISTE / KACHELN UMSCHALTER) -->
       <!-- ================================================================= -->
       <section id="view-dguv" class="hidden space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 class="font-bold text-lg text-slate-900">DGUV V3 Prüfungen (Benning ST 755+)</h2>
-            <p class="text-xs text-slate-500">Prüfnummern & PDF-Prüfprotokolle direkt am elektrischen Gerät hinterlegen und per Klick öffnen.</p>
+            <h2 class="font-bold text-base md:text-lg text-slate-900">DGUV V3 Prüfungen (Benning ST 755+)</h2>
+            <p class="text-xs text-slate-500">Prüfnummern & PDF-Protokolle direkt am Gerät einsehen.</p>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+          <div class="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+            <div class="inline-flex rounded-xl border border-slate-300 overflow-hidden bg-slate-50 text-xs">
               <button type="button" id="dguv-view-mode-list" onclick="setDguvViewMode('list')"
-                      class="px-3 py-2 font-bold flex items-center gap-1.5 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 transition">
                 ☰ Liste
               </button>
               <button type="button" id="dguv-view-mode-grid" onclick="setDguvViewMode('grid')"
-                      class="px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                      class="px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
                 ⊞ Kacheln
               </button>
             </div>
-            <button onclick="openDguvModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
-              + Benning-Prüfung / PDF erfassen
+            <button onclick="openDguvModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm">
+              + Benning-Prüfung / PDF
             </button>
           </div>
         </div>
@@ -284,31 +397,97 @@
       <!-- TAB 5: INVENTUR & DIN-A4 DRUCK                                    -->
       <!-- ================================================================= -->
       <section id="view-stocktake" class="hidden space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
-          <div class="flex items-center gap-3 flex-wrap">
-            <label class="text-sm font-semibold">Bestandsbereich für Inventur:</label>
-            <select id="stocktake-tenant-select" onchange="renderStocktake()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold bg-white"></select>
+        <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <label class="text-xs md:text-sm font-semibold">Bestandsbereich:</label>
+            <select id="stocktake-tenant-select" onchange="renderStocktake()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold bg-white flex-1 sm:flex-none"></select>
           </div>
-          <button onclick="printGeneralPage()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow">
-            🖨️ Inventurliste drucken / als PDF speichern
+          <button onclick="printGeneralPage()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs md:text-sm font-bold shadow">
+            🖨️ Inventurliste drucken / PDF
           </button>
         </div>
-        <div id="stocktake-print-area" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 card"></div>
+        <div id="stocktake-print-area" class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 card overflow-x-auto"></div>
       </section>
     </main>
   </div>
 
   <!-- SEPARATES FENSTER FÜR PACKLISTE (OPTIONAL PER BUTTON "FENSTER") -->
-  <div id="job-window-backdrop" class="hidden fixed inset-0 bg-slate-900/65 z-40 flex items-center justify-center p-2 md:p-5 overflow-y-auto no-print">
-    <div id="job-window-content" class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full border border-slate-200 max-h-[94vh] flex flex-col overflow-hidden"></div>
+  <div id="job-window-backdrop" class="hidden fixed inset-0 bg-slate-900/70 z-40 flex items-end md:items-center justify-center md:p-5 overflow-y-auto no-print">
+    <div id="job-window-content" class="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl max-w-6xl w-full border border-slate-200 h-[94vh] md:h-auto md:max-h-[94vh] flex flex-col overflow-hidden"></div>
   </div>
 
-  <!-- ALLGEMEINES DIALOG-FENSTER -->
-  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto no-print">
-    <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 my-8 border border-slate-200 max-h-[92vh] overflow-y-auto"></div>
+  <!-- ALLGEMEINES DIALOG-FENSTER (BOTTOM-SHEET AUF HANDY, ZENTRIERT AUF TABLET/PC) -->
+  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/65 z-50 flex items-end sm:items-center justify-center sm:p-4 overflow-y-auto no-print">
+    <div id="modal-content" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 sm:my-8 border border-slate-200 max-h-[92vh] overflow-y-auto"></div>
   </div>
 
 <script>
+// ============================================================================
+// PWA SERVICE WORKER & APP-INSTALLATIONS-LOGIK (FÜR ANDROID / CHROME / TABLET)
+// ============================================================================
+let deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  const swCode = `
+    self.addEventListener('install', (e) => self.skipWaiting());
+    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+    self.addEventListener('fetch', (e) => {
+      e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    });
+  `;
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('pwa-install-btn-login')?.classList.remove('hidden');
+  document.getElementById('pwa-install-btn-header')?.classList.remove('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  document.getElementById('pwa-install-btn-login')?.classList.add('hidden');
+  document.getElementById('pwa-install-btn-header')?.classList.add('hidden');
+});
+
+async function triggerPwaInstall() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === 'accepted') deferredInstallPrompt = null;
+    return;
+  }
+  openInstallHelpModal();
+}
+
+function openInstallHelpModal() {
+  openModal(`
+    <h3 class="text-lg font-bold mb-2">📲 Als App auf Smartphone & Tablet installieren</h3>
+    <div class="space-y-3 text-sm text-slate-700">
+      <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+        <div class="font-bold text-indigo-950 mb-1">Android (Chrome / Samsung Internet):</div>
+        <ol class="list-decimal list-inside space-y-1 text-xs">
+          <li>Öffne die Seite über deine HTTPS-Webadresse (nicht als lokale Datei).</li>
+          <li>Tippe oben rechts im Browser auf das <b>3-Punkte-Menü (⋮)</b>.</li>
+          <li>Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“ → „Installieren“</b>.</li>
+        </ol>
+      </div>
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="font-bold text-slate-900 mb-1">iPad / iPhone (Safari):</div>
+        <ol class="list-decimal list-inside space-y-1 text-xs">
+          <li>Tippe unten/oben auf das <b>Teilen-Symbol (Quadrat mit Pfeil nach oben)</b>.</li>
+          <li>Wähle <b>„Zum Home-Bildschirm“</b> → <b>„Hinzufügen“</b>.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="flex justify-end pt-4">
+      <button onclick="closeModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Verstanden</button>
+    </div>
+  `);
+}
+
 // ============================================================================
 // FEST HINTERLEGTE SUPABASE-VERBINDUNG
 // ============================================================================
@@ -329,9 +508,9 @@ let state = {
   pickupLocations: [],
   workshopTickets: [],
   selectedTenant: 'ALL',
-  openJobId: null,       // Inline im Hauptarbeitsfenster geöffnete Packliste (null = geschlossen)
-  modalJobId: null,      // Optional im separaten Fenster geöffnete Packliste
-  expandedItemIds: [],   // Aufgeklappte Detailzeilen in "1. Bestand & Artikel"
+  openJobId: null,
+  modalJobId: null,
+  expandedItemIds: [],
   workshopFilter: 'OPEN_ALL',
   inventoryViewMode: localStorage.getItem('lw_inv_view') || 'list',
   jobsViewMode: localStorage.getItem('lw_jobs_view') || 'list',
@@ -471,9 +650,7 @@ async function loadAllData() {
   state.pickupLocations = locRes.data || [];
   state.workshopTickets = wRes.data || [];
 
-  if (state.openJobId && !state.jobs.some(j => j.id === state.openJobId)) {
-    state.openJobId = null;
-  }
+  if (state.openJobId && !state.jobs.some(j => j.id === state.openJobId)) state.openJobId = null;
   if (state.modalJobId && !state.jobs.some(j => j.id === state.modalJobId)) {
     state.modalJobId = null;
     document.getElementById('job-window-backdrop').classList.add('hidden');
@@ -518,12 +695,23 @@ function switchTab(tab) {
   }
   ['inventory', 'jobs', 'workshop', 'dguv', 'stocktake'].forEach(t => {
     document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+
     const btn = document.getElementById(`tab-btn-${t}`);
-    btn.classList.toggle('border-indigo-400', t === tab);
-    btn.classList.toggle('text-white', t === tab);
-    btn.classList.toggle('border-transparent', t !== tab);
-    btn.classList.toggle('text-slate-400', t !== tab);
+    if (btn) {
+      btn.classList.toggle('border-indigo-400', t === tab);
+      btn.classList.toggle('text-white', t === tab);
+      btn.classList.toggle('border-transparent', t !== tab);
+      btn.classList.toggle('text-slate-400', t !== tab);
+    }
+
+    const mobBtn = document.getElementById(`mob-tab-${t}`);
+    if (mobBtn) {
+      mobBtn.classList.toggle('text-indigo-300', t === tab);
+      mobBtn.classList.toggle('bg-slate-800/80', t === tab);
+      mobBtn.classList.toggle('text-slate-400', t !== tab);
+    }
   });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   if (tab === 'jobs') renderJobs();
 }
 
@@ -587,7 +775,7 @@ function formatPackLinePrintHtml(lineName) {
 }
 
 // ============================================================================
-// TAB 1: BESTAND & ARTIKEL (KOMPAKTE ZEILEN + AUFKLAPP-DETAILS + DIREKT PACKEN)
+// TAB 1: BESTAND & ARTIKEL (MOBILE-OPTIMIERTE LISTE + KACHELN)
 // ============================================================================
 function setInventoryViewMode(mode) {
   state.inventoryViewMode = mode;
@@ -601,8 +789,8 @@ function updateViewToggleButtons() {
   const btnList = document.getElementById('view-mode-list');
   const btnGrid = document.getElementById('view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function toggleItemRowExpand(itemId) {
@@ -638,6 +826,34 @@ function toggleColumnSort(field) {
 function sortArrow(field) {
   if (state.sortField !== field) return '<span class="text-slate-300 ml-1">↕</span>';
   return state.sortDir === 'asc' ? '<span class="text-indigo-600 ml-1">↑</span>' : '<span class="text-indigo-600 ml-1">↓</span>';
+}
+
+function buildItemExpandedDetails(item) {
+  const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
+  const rules = Array.isArray(item.dependency_rules) ? item.dependency_rules : [];
+  const detailBlocks = [];
+
+  if (item.item_type === 'bundle') {
+    detailBlocks.push(`<div><span class="font-bold text-purple-800">Komponenten-Set:</span> ${comps.length > 0 ? comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ') : 'Keine Bestandteile hinterlegt'}</div>`);
+  }
+  if (item.item_type === 'dimension' && item.dimension_config) {
+    const cfg = item.dimension_config;
+    detailBlocks.push(`<div><span class="font-bold text-blue-800">Maß-System (${cfg.min_width} m – ${cfg.max_width} m):</span> ${esc(cfg.base_item || 'Grundkoffer')}, ${esc(cfg.ext_item || 'Zusatzkiste')}, ${esc(cfg.reflector_item || 'Reflektor')} & ${esc(cfg.graphic_item || 'Grafik')}</div>`);
+  }
+  if (rules.length > 0) {
+    detailBlocks.push(`<div><span class="font-bold text-amber-800">🔗 Hinterlegte Dispo-Abfragen (${rules.length}):</span>
+      <ul class="list-disc list-inside mt-0.5 text-slate-700">
+        ${rules.map(r => `<li><b>${esc(r.question)}</b> (${(r.options || []).map(o => esc(o.label)).join(' / ')})</li>`).join('')}
+      </ul>
+    </div>`);
+  }
+  if (item.notes) {
+    detailBlocks.push(`<div><span class="font-bold text-slate-700">Notiz:</span> <span class="italic text-slate-600">${esc(item.notes)}</span></div>`);
+  }
+  if (detailBlocks.length === 0) {
+    detailBlocks.push(`<div class="text-slate-400 italic">Keine weiteren Verknüpfungen oder Notizen hinterlegt.</div>`);
+  }
+  return detailBlocks.join('');
 }
 
 function renderInventory() {
@@ -700,19 +916,77 @@ function renderInventory() {
   });
 
   const subCount = state.items.filter(i => i.is_subrental).length;
-  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel angezeigt` + (subCount > 0 ? ` (${subCount} Zumietartikel)` : '');
+  document.getElementById('inv-count-label').textContent = `${filtered.length} Artikel` + (subCount > 0 ? ` (+${subCount} Zumiet.)` : '');
 
   const container = document.getElementById('inventory-container');
   if (filtered.length === 0) {
     container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
-      Keine Artikel in dieser Auswahl gefunden. Klicke oben auf <b>„+ Neuer Artikel / Zumietartikel“</b> oder passe die Filter an.
+      Keine Artikel in dieser Auswahl gefunden.
     </div>`;
     return;
   }
 
   if (state.inventoryViewMode === 'list') {
-    container.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+    // Smartphone-kompakte Liste (md:hidden) + Tablet/Desktop-Tabelle (hidden md:block)
+    const mobileListHtml = `
+      <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+        ${filtered.map(item => {
+          const defQty = getDefectiveQtyForItem(item.id);
+          const avail = Math.max(0, (item.total_qty || 0) - defQty);
+          const isExpanded = state.expandedItemIds.includes(item.id);
+
+          return `
+            <div onclick="toggleItemRowExpand('${item.id}')" class="p-3.5 active:bg-indigo-50/40 transition">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(item.tenant_id))}</span>
+                    <span class="text-[11px] text-slate-500">${esc(item.category)}</span>
+                    ${item.is_subrental ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Zumietung</span>` : ''}
+                  </div>
+                  <div class="font-bold text-slate-900 text-sm leading-snug">
+                    <span class="text-indigo-600 mr-1">${isExpanded ? '▾' : '▸'}</span>${esc(item.name)}
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap mt-1 text-xs text-slate-500">
+                    ${!item.is_subrental && item.storage_location ? `<span>📍 ${esc(item.storage_location)}</span>` : ''}
+                    ${!item.is_subrental && defQty > 0 ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[11px]">⚠️ ${defQty}× Defekt</span>` : ''}
+                    ${!item.is_subrental && item.is_dguv ? getDguvStatusBadge(item.id) : ''}
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  ${item.is_subrental
+                    ? `<span class="text-[11px] text-amber-700 font-bold">Zumiet.</span>`
+                    : `<div class="text-lg font-extrabold leading-none ${avail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${avail}<span class="text-xs font-normal text-slate-400">/${item.total_qty}</span></div>
+                       <div class="text-[10px] text-slate-400 mt-0.5">frei</div>`
+                  }
+                </div>
+              </div>
+
+              ${isExpanded ? `
+                <div class="mt-2.5 p-2.5 rounded-lg bg-slate-50 border-l-4 border-indigo-500 text-xs space-y-1">
+                  ${buildItemExpandedDetails(item)}
+                </div>
+              ` : ''}
+
+              <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs" onclick="event.stopPropagation()">
+                <button onclick="openAddItemToPacklistFromCatalog('${item.id}')"
+                        class="px-3 py-2 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white font-bold shadow-sm">
+                  + Packliste
+                </button>
+                <div class="flex items-center gap-1.5">
+                  ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-3 py-2 rounded-xl bg-rose-50 active:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
+                  <button onclick="openItemModal('${item.id}')" class="px-3 py-2 rounded-xl bg-slate-100 active:bg-slate-200 text-slate-800 font-semibold">Bearbeiten</button>
+                  <button onclick="deleteItem('${item.id}')" aria-label="Löschen" class="px-2.5 py-2 rounded-xl text-slate-400 active:text-red-600">✕</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    const desktopTableHtml = `
+      <div class="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600 select-none">
@@ -734,38 +1008,13 @@ function renderInventory() {
               const hasDetails = item.item_type === 'bundle' || item.item_type === 'dimension' || rules.length > 0 || !!item.notes;
               const isExpanded = state.expandedItemIds.includes(item.id);
 
-              let expandedHtml = '';
-              if (isExpanded) {
-                const detailBlocks = [];
-                if (item.item_type === 'bundle') {
-                  detailBlocks.push(`<div><span class="font-bold text-purple-800">Komponenten-Set:</span> ${comps.length > 0 ? comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ') : 'Keine Bestandteile hinterlegt'}</div>`);
-                }
-                if (item.item_type === 'dimension' && item.dimension_config) {
-                  const cfg = item.dimension_config;
-                  detailBlocks.push(`<div><span class="font-bold text-blue-800">Maß-System (${cfg.min_width} m – ${cfg.max_width} m):</span> ${esc(cfg.base_item || 'Grundkoffer')}, ${esc(cfg.ext_item || 'Zusatzkiste')}, ${esc(cfg.reflector_item || 'Reflektor')} & ${esc(cfg.graphic_item || 'Grafik')}</div>`);
-                }
-                if (rules.length > 0) {
-                  detailBlocks.push(`<div><span class="font-bold text-amber-800">🔗 Hinterlegte Dispo-Abfragen (${rules.length}):</span>
-                    <ul class="list-disc list-inside mt-0.5 text-slate-700">
-                      ${rules.map(r => `<li><b>${esc(r.question)}</b> (${(r.options || []).map(o => esc(o.label)).join(' / ')})</li>`).join('')}
-                    </ul>
-                  </div>`);
-                }
-                if (item.notes) {
-                  detailBlocks.push(`<div><span class="font-bold text-slate-700">Notiz:</span> <span class="italic text-slate-600">${esc(item.notes)}</span></div>`);
-                }
-                if (detailBlocks.length === 0) {
-                  detailBlocks.push(`<div class="text-slate-400 italic">Keine weiteren Verknüpfungen oder Notizen hinterlegt.</div>`);
-                }
-
-                expandedHtml = `
-                  <tr class="bg-slate-50/95 border-b border-slate-200">
-                    <td colspan="7" class="px-4 py-3 text-xs space-y-1.5 border-l-4 border-indigo-500">
-                      ${detailBlocks.join('')}
-                    </td>
-                  </tr>
-                `;
-              }
+              const expandedHtml = isExpanded ? `
+                <tr class="bg-slate-50/95 border-b border-slate-200">
+                  <td colspan="7" class="px-4 py-3 text-xs space-y-1.5 border-l-4 border-indigo-500">
+                    ${buildItemExpandedDetails(item)}
+                  </td>
+                </tr>
+              ` : '';
 
               return `
                 <tr onclick="toggleItemRowExpand('${item.id}')" class="hover:bg-indigo-50/35 cursor-pointer transition select-none">
@@ -792,19 +1041,19 @@ function renderInventory() {
                     ${(!item.is_subrental && item.is_dguv) ? `
                       <div class="flex items-center gap-1.5">
                         ${getDguvStatusBadge(item.id)}
-                        <button onclick="openDguvModal('${item.id}')" title="Neue Benning-Prüfung erfassen" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold">+</button>
+                        <button onclick="openDguvModal('${item.id}')" title="Neue Benning-Prüfung erfassen" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">+</button>
                       </div>
                     ` : '<span class="text-xs text-slate-300">-</span>'}
                   </td>
                   <td class="p-3 align-middle text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
                       <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" title="Artikel direkt in eine Packliste buchen"
-                              class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm">
+                              class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm">
                         + Packliste
                       </button>
-                      ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
-                      <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-                      <button onclick="deleteItem('${item.id}')" title="Artikel löschen" class="px-2 py-1 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+                      ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
+                      <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
+                      <button onclick="deleteItem('${item.id}')" title="Artikel löschen" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
                     </div>
                   </td>
                 </tr>
@@ -815,14 +1064,15 @@ function renderInventory() {
         </table>
       </div>
     `;
+
+    container.innerHTML = mobileListHtml + desktopTableHtml;
     return;
   }
 
-  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filtered.map(item => {
+  // Kachelansicht (1 Spalte Handy, 2 Spalten Tablet, 3 Spalten Desktop)
+  container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">` + filtered.map(item => {
     const defQty = getDefectiveQtyForItem(item.id);
     const avail = Math.max(0, (item.total_qty || 0) - defQty);
-    const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
-    const rules = Array.isArray(item.dependency_rules) ? item.dependency_rules : [];
     const isExpanded = state.expandedItemIds.includes(item.id);
 
     let typeBadge = item.is_subrental
@@ -832,29 +1082,6 @@ function renderInventory() {
       : item.item_type === 'dimension'
       ? `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System</span>`
       : `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">Einzelartikel</span>`;
-
-    let detailsHtml = '';
-    if (isExpanded) {
-      if (item.item_type === 'bundle') {
-        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-          <span class="font-semibold">Enthält automatisch:</span>
-          <ul class="list-disc list-inside mt-0.5">${comps.map(c => `<li>${c.qty_per_unit}× ${esc(c.component_name)}</li>`).join('')}</ul>
-        </div>`;
-      } else if (item.item_type === 'dimension' && item.dimension_config) {
-        const cfg = item.dimension_config;
-        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-          <span class="font-semibold">Positionen:</span> ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
-        </div>`;
-      }
-      if (rules.length > 0) {
-        detailsHtml += `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-amber-800">
-          <span class="font-semibold">🔗 Abfragen:</span> ${rules.map(r => esc(r.question)).join(' • ')}
-        </div>`;
-      }
-      if (item.notes) {
-        detailsHtml += `<p class="mt-2 text-xs text-slate-500 italic">${esc(item.notes)}</p>`;
-      }
-    }
 
     return `
       <div onclick="toggleItemRowExpand('${item.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-300 cursor-pointer flex flex-col justify-between transition">
@@ -876,18 +1103,18 @@ function renderInventory() {
 
           ${!item.is_subrental && item.storage_location ? `<div class="text-xs text-slate-500 mt-1">📍 Lagerplatz: <b>${esc(item.storage_location)}</b></div>` : ''}
           ${!item.is_subrental && defQty > 0 ? `<div class="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">⚠️ ${defQty}× in Werkstatt / Defekt</div>` : ''}
-          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2" onclick="event.stopPropagation()">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="text-xs text-indigo-600 hover:underline font-semibold">+ Prüfung</button></div>` : ''}
-          ${detailsHtml}
+          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2" onclick="event.stopPropagation()">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="px-2 py-1 rounded bg-indigo-50 text-xs text-indigo-700 font-semibold">+ Prüfung</button></div>` : ''}
+          ${isExpanded ? `<div class="mt-2 pt-2 border-t border-slate-100 text-xs space-y-1">${buildItemExpandedDetails(item)}</div>` : ''}
         </div>
 
         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs flex-wrap" onclick="event.stopPropagation()">
-          <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+          <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
             + Packliste
           </button>
           <div class="flex gap-1.5">
-            ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
-            <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-            <button onclick="deleteItem('${item.id}')" class="px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+            ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
+            <button onclick="openItemModal('${item.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
+            <button onclick="deleteItem('${item.id}')" class="px-2.5 py-2 rounded-xl text-slate-400 hover:text-red-600">✕</button>
           </div>
         </div>
       </div>
@@ -896,7 +1123,7 @@ function renderInventory() {
 }
 
 // ============================================================================
-// TAB 2: PACKLISTEN (LISTE / KACHELN + IM HAUPTFENSTER ODER SEPARATES FENSTER)
+// TAB 2: PACKLISTEN (MOBILE TOUCH-KARTEN + TABLET/DESKTOP TABELLE)
 // ============================================================================
 function setJobsViewMode(mode) {
   state.jobsViewMode = mode;
@@ -910,8 +1137,8 @@ function updateJobsViewToggleButtons() {
   const btnList = document.getElementById('jobs-view-mode-list');
   const btnGrid = document.getElementById('jobs-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function isLineSubrental(line) {
@@ -961,23 +1188,92 @@ function buildPacklistWorkspaceHtml(job, mode) {
     ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs (${loadedCount}/${allLines.length} geladen)</span>`
     : `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
 
-  const renderPackRow = (line, isSub) => {
+  // Smartphone-freundliche Position (große Tippflächen für Gepackt & Geladen)
+  const renderMobilePackCard = (line, isSub) => {
+    const cardBg = line.loaded ? 'bg-blue-50/60' : line.packed ? 'bg-emerald-50/60' : (isSub ? 'bg-amber-50/40' : 'bg-white');
+    const showPrint = line.show_on_print !== false;
+    return `
+      <div class="p-3.5 ${cardBg} space-y-2.5">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="font-bold text-slate-900 text-sm leading-snug">
+              ${formatPackLineHtml(line.line_name, isSub)}
+              ${isSub ? `<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap mt-0.5 text-[11px] text-slate-500">
+              ${line.category ? `<span>${esc(line.category)}</span>` : ''}
+              ${!showPrint ? `<span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-bold">Nicht im Druck</span>` : ''}
+              ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold">${line.defective_qty}× Defekt</span>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <input type="number" min="1" value="${line.qty_required}"
+                   onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
+                   class="w-16 px-2 py-1.5 text-center font-extrabold border border-slate-300 rounded-xl bg-white text-sm" />
+            <span class="text-xs font-bold text-slate-500">×</span>
+          </div>
+        </div>
+
+        <!-- Große Touch-Buttons für Gepackt & Geladen -->
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border cursor-pointer font-bold text-xs select-none transition ${line.packed ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-700 border-slate-300'}">
+            <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)" class="sr-only" />
+            <span>${line.packed ? '✅ Gepackt' : '☐ Gepackt'}</span>
+          </label>
+          <label class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border cursor-pointer font-bold text-xs select-none transition ${line.loaded ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-300'}">
+            <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)" class="sr-only" />
+            <span>${line.loaded ? '🚚 Geladen' : '☐ Geladen'}</span>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input type="text" value="${esc(line.storage_location || '')}"
+                 onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
+                 placeholder="${isSub ? 'Vermieter / Abholort...' : 'Lagerort / Regal...'}"
+                 class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white" />
+          <input type="text" value="${esc(line.notes || '')}"
+                 onchange="updatePackLineField('${line.id}', 'notes', this.value)"
+                 placeholder="Anmerkung..."
+                 class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white" />
+        </div>
+
+        <div class="flex items-center justify-between pt-1 text-xs">
+          <label class="flex items-center gap-2 text-slate-600 font-semibold cursor-pointer">
+            <input type="checkbox" ${showPrint ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)" class="rounded text-indigo-600" />
+            <span>Im Druck</span>
+          </label>
+          <div class="flex items-center gap-2">
+            ${!isSub ? `
+              <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
+                      class="px-3 py-1.5 rounded-xl bg-rose-50 active:bg-rose-100 text-rose-700 font-semibold">
+                🔧 Defekt
+              </button>
+            ` : ''}
+            <button onclick="deletePackLine('${line.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-500 active:text-red-600 font-bold">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Tablet & Desktop Tabellenzeile
+  const renderDesktopPackRow = (line, isSub) => {
     const rowBg = line.loaded ? 'bg-blue-50/40' : line.packed ? 'bg-emerald-50/40' : (isSub ? 'bg-amber-50/35' : '');
     const showPrint = line.show_on_print !== false;
     return `
       <tr class="${rowBg} hover:bg-slate-50">
         <td class="p-2.5 text-center">
           <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)"
-                 title="${isSub ? 'Abgeholt / Bereit' : 'Im Lager gepackt'}" class="w-4 h-4 rounded border-slate-300 text-emerald-600 cursor-pointer" />
+                 title="${isSub ? 'Abgeholt / Bereit' : 'Im Lager gepackt'}" class="w-5 h-5 rounded border-slate-300 text-emerald-600 cursor-pointer" />
         </td>
         <td class="p-2.5 text-center">
           <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)"
-                 title="Im Fahrzeug geladen" class="w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer" />
+                 title="Im Fahrzeug geladen" class="w-5 h-5 rounded border-slate-300 text-blue-600 cursor-pointer" />
         </td>
         <td class="p-2.5 text-center font-extrabold text-slate-900">
           <input type="number" min="1" value="${line.qty_required}"
                  onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
-                 class="w-14 px-1.5 py-1 text-center font-bold border border-slate-200 rounded bg-white text-xs" />
+                 class="w-16 px-2 py-1.5 text-center font-bold border border-slate-200 rounded-lg bg-white text-xs" />
         </td>
         <td class="p-2.5">
           <div class="font-bold text-slate-900 ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : ''}">
@@ -994,29 +1290,29 @@ function buildPacklistWorkspaceHtml(job, mode) {
           <input type="text" value="${esc(line.storage_location || '')}"
                  onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
                  placeholder="${isSub ? 'Vermieter / Abholort' : 'Regal / Fach...'}"
-                 class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+                 class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
         </td>
         <td class="p-2.5">
           <input type="text" value="${esc(line.notes || '')}"
                  onchange="updatePackLineField('${line.id}', 'notes', this.value)"
                  placeholder="Anmerkung..."
-                 class="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white" />
+                 class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
         </td>
         <td class="p-2.5 text-center">
           <input type="checkbox" ${showPrint ? 'checked' : ''}
                  onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)"
                  title="Auf DIN-A4 Ausdruck anzeigen"
-                 class="w-4 h-4 rounded border-slate-300 text-indigo-600 cursor-pointer" />
+                 class="w-5 h-5 rounded border-slate-300 text-indigo-600 cursor-pointer" />
         </td>
         <td class="p-2.5 text-right whitespace-nowrap">
           ${!isSub ? `
             <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
                     title="Defekt in Werkstatt melden"
-                    class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold">
+                    class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold">
               🔧 Defekt
             </button>
           ` : ''}
-          <button onclick="deletePackLine('${line.id}')" title="Zeile aus Packliste löschen" class="ml-1 px-1.5 py-1 text-slate-400 hover:text-red-600 text-xs">✕</button>
+          <button onclick="deletePackLine('${line.id}')" title="Zeile aus Packliste löschen" class="ml-1 px-2 py-1.5 text-slate-400 hover:text-red-600 text-xs">✕</button>
         </td>
       </tr>
     `;
@@ -1025,59 +1321,59 @@ function buildPacklistWorkspaceHtml(job, mode) {
   const isModal = mode === 'modal';
   const headerBar = isModal
     ? `
-      <div class="p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div class="flex items-center gap-2.5 flex-wrap">
+      <div class="p-3.5 md:p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500 text-white">${esc(tenantName(job.tenant_id))}</span>
-          <h3 class="font-bold text-lg">📁 ${esc(job.title)}</h3>
+          <h3 class="font-bold text-base md:text-lg">📁 ${esc(job.title)}</h3>
           ${job.event_date ? `<span class="text-xs text-slate-300">📅 ${job.event_date}</span>` : ''}
           ${statusBadge}
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold shadow-sm">
-            + Artikel / Zumietung suchen & packen
+        <div class="flex items-center gap-1.5 md:gap-2 flex-wrap w-full md:w-auto">
+          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold shadow-sm text-center">
+            + Artikel / Zumietung packen
           </button>
-          <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold border border-slate-700">
+          <button onclick="printPacklist('${job.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700">
             🖨️ Drucken
           </button>
-          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
+          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold">
             📊 Excel
           </button>
-          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
-          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
-          <button onclick="closeJobWindow()" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-extrabold ml-1">
-            ✕ Fenster schließen
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold">→ Rücknahme</button>` : ''}
+          <button onclick="closeJobWindow()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-extrabold">
+            ✕ Schließen
           </button>
         </div>
       </div>
     `
     : `
-      <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <button onclick="closeJobInline()" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-800">
-            ← Zurück zur Übersicht
+      <div class="p-3.5 md:p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="closeJobInline()" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-800">
+            ← Übersicht
           </button>
           <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
-          <h3 class="font-bold text-lg text-slate-900">📁 ${esc(job.title)}</h3>
+          <h3 class="font-bold text-base md:text-lg text-slate-900">📁 ${esc(job.title)}</h3>
           ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
           ${statusBadge}
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="openAddPackLineModal('${job.id}')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm">
-            + Artikel / Zumietung suchen & packen
+        <div class="flex items-center gap-1.5 md:gap-2 flex-wrap w-full md:w-auto">
+          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm text-center">
+            + Artikel / Zumietung packen
           </button>
-          <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
+          <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="hidden md:inline-flex px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl text-xs font-bold">
             🗔 Fenster
           </button>
-          <button onclick="printPacklist('${job.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">
+          <button onclick="printPacklist('${job.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">
             🖨️ Drucken
           </button>
-          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">
+          <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold">
             📊 Excel
           </button>
-          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold">→ Unterwegs</button>` : ''}
-          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold">→ Rücknahme</button>` : ''}
-          <button onclick="closeJobInline()" title="Packliste schließen" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold">
-            ✕ Schließen
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">→ Rücknahme</button>` : ''}
+          <button onclick="closeJobInline()" title="Packliste schließen" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold">
+            ✕
           </button>
         </div>
       </div>
@@ -1087,25 +1383,42 @@ function buildPacklistWorkspaceHtml(job, mode) {
     ${headerBar}
 
     <div class="${isModal ? 'overflow-y-auto flex-1' : ''}">
-      <div class="px-4 py-2.5 bg-amber-50/70 border-b border-slate-200 flex flex-wrap items-center gap-2">
-        <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Allgemeine Info:</span>
+      <div class="px-3.5 md:px-4 py-2.5 bg-amber-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2">
+        <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Info:</span>
         <input type="text" value="${esc(job.pickup_info || '')}"
                onchange="updateJobPickupInfo('${job.id}', this.value)"
-               placeholder="z. B. Abholung am Fr. 10:00 Uhr durch Markus / Transporter Sprinter 2..."
-               class="flex-1 min-w-[240px] px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none" />
+               placeholder="z. B. Abholung am Fr. 10:00 Uhr durch Markus..."
+               class="flex-1 px-3 py-2 text-xs bg-white border border-amber-200 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none" />
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Smartphone-Ansicht der Packliste (md:hidden) -->
+      <div class="md:hidden divide-y divide-slate-200">
+        ${allLines.length === 0 ? `
+          <div class="p-6 text-center text-xs text-slate-400">
+            Diese Packliste ist noch leer. Tippe oben auf <b>„+ Artikel / Zumietung packen“</b>.
+          </div>
+        ` : ''}
+        ${ownLines.map(line => renderMobilePackCard(line, false)).join('')}
+        ${subLines.length > 0 ? `
+          <div class="px-3.5 py-2 bg-amber-100 text-xs font-extrabold uppercase text-amber-950">
+            🚐 Zumietartikel auf dieser Packliste
+          </div>
+          ${subLines.map(line => renderMobilePackCard(line, true)).join('')}
+        ` : ''}
+      </div>
+
+      <!-- Tablet & Desktop Tabellenansicht der Packliste (hidden md:block) -->
+      <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
             <tr class="bg-slate-100/80 border-b border-slate-200 text-[11px] uppercase text-slate-600">
               <th class="p-2.5 text-center w-16">Gepackt</th>
               <th class="p-2.5 text-center w-16">Geladen</th>
-              <th class="p-2.5 text-center w-16">Menge</th>
+              <th class="p-2.5 text-center w-20">Menge</th>
               <th class="p-2.5">Artikel / Grafik / Komponente</th>
               <th class="p-2.5 w-44">Lagerort / Vermieter</th>
               <th class="p-2.5 w-56">Anmerkung</th>
-              <th class="p-2.5 text-center w-24" title="Soll diese Zeile auf dem DIN-A4 Ausdruck erscheinen?">Im Druck</th>
+              <th class="p-2.5 text-center w-24">Im Druck</th>
               <th class="p-2.5 text-right w-36">Werkstatt / Entfernen</th>
             </tr>
           </thead>
@@ -1113,11 +1426,11 @@ function buildPacklistWorkspaceHtml(job, mode) {
             ${allLines.length === 0 ? `
               <tr>
                 <td colspan="8" class="p-6 text-center text-xs text-slate-400">
-                  Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung suchen & packen“</b>, um Positionen hinzuzufügen.
+                  Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung packen“</b>, um Positionen hinzuzufügen.
                 </td>
               </tr>
             ` : ''}
-            ${ownLines.map(line => renderPackRow(line, false)).join('')}
+            ${ownLines.map(line => renderDesktopPackRow(line, false)).join('')}
 
             ${subLines.length > 0 ? `
               <tr class="bg-amber-100/80 border-y border-amber-300">
@@ -1125,25 +1438,26 @@ function buildPacklistWorkspaceHtml(job, mode) {
                   🚐 Zumietartikel auf dieser Packliste (nach Abholung hier als Gepackt & Geladen abhaken)
                 </td>
               </tr>
-              ${subLines.map(line => renderPackRow(line, true)).join('')}
+              ${subLines.map(line => renderDesktopPackRow(line, true)).join('')}
             ` : ''}
           </tbody>
         </table>
       </div>
 
-      <div class="p-4 bg-slate-50/90 border-t border-slate-200">
+      <!-- Abholscheine & Lieferanten-Adressen -->
+      <div class="p-3.5 md:p-4 bg-slate-50/90 border-t border-slate-200">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <div class="flex items-center gap-2">
-            <span class="font-bold text-sm text-slate-900">📍 Abholscheine & Lieferanten-Adressen für Zumietungen</span>
+            <span class="font-bold text-sm text-slate-900">📍 Abholscheine & Zumiet-Adressen</span>
             <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-700">${subrentals.length}</span>
           </div>
-          <div class="flex items-center gap-2">
-            <button onclick="openSubrentalModal('${job.id}')" class="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-lg text-xs font-bold">
-              + Abholadresse / Zumietung eintragen
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="openSubrentalModal('${job.id}')" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl text-xs font-bold">
+              + Abholadresse eintragen
             </button>
             ${subrentals.length > 0 ? `
-              <button onclick="printSubrentals('${job.id}')" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm">
-                🖨️ Abholschein (Zumietung) drucken
+              <button onclick="printSubrentals('${job.id}')" class="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm">
+                🖨️ Abholschein drucken
               </button>
             ` : ''}
           </div>
@@ -1152,35 +1466,35 @@ function buildPacklistWorkspaceHtml(job, mode) {
         ${subrentals.length === 0 ? `
           <p class="text-xs text-slate-400 italic">Noch keine separaten Abholadressen hinterlegt.</p>
         ` : `
-          <div class="overflow-x-auto bg-white rounded-lg border border-slate-200">
+          <div class="overflow-x-auto bg-white rounded-xl border border-slate-200">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
                 <tr class="bg-amber-50 border-b border-amber-200 text-amber-950 uppercase text-[10px]">
-                  <th class="p-2 text-center w-16">Abgeholt</th>
-                  <th class="p-2 w-14 text-center">Menge</th>
-                  <th class="p-2">Zumiet-Artikel</th>
-                  <th class="p-2">Vermieter / Lieferant</th>
-                  <th class="p-2">Abholadresse</th>
-                  <th class="p-2">Abholzeit</th>
-                  <th class="p-2">Abholer / Notiz</th>
-                  <th class="p-2 w-10"></th>
+                  <th class="p-2.5 text-center w-16">Abgeholt</th>
+                  <th class="p-2.5 w-14 text-center">Menge</th>
+                  <th class="p-2.5">Zumiet-Artikel</th>
+                  <th class="p-2.5">Vermieter</th>
+                  <th class="p-2.5">Abholadresse</th>
+                  <th class="p-2.5">Abholzeit</th>
+                  <th class="p-2.5">Abholer / Notiz</th>
+                  <th class="p-2.5 w-10"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 ${subrentals.map(sr => `
                   <tr class="${sr.picked_up ? 'bg-emerald-50/50' : ''}">
-                    <td class="p-2 text-center">
+                    <td class="p-2.5 text-center">
                       <input type="checkbox" ${sr.picked_up ? 'checked' : ''} onchange="toggleSubrentalPickedUp('${sr.id}', this.checked)"
-                             class="w-4 h-4 rounded text-emerald-600 cursor-pointer" />
+                             class="w-5 h-5 rounded text-emerald-600 cursor-pointer" />
                     </td>
-                    <td class="p-2 text-center font-bold">${sr.qty}×</td>
-                    <td class="p-2 font-bold text-slate-900">${esc(sr.item_description)}</td>
-                    <td class="p-2 font-semibold text-indigo-700">${esc(sr.supplier_name)}</td>
-                    <td class="p-2">${esc(sr.pickup_address || '-')}</td>
-                    <td class="p-2 font-semibold">${esc(sr.pickup_datetime || '-')}</td>
-                    <td class="p-2 text-slate-600">${esc(sr.notes || '-')}</td>
-                    <td class="p-2 text-right">
-                      <button onclick="deleteSubrental('${sr.id}')" class="text-slate-400 hover:text-red-600">✕</button>
+                    <td class="p-2.5 text-center font-bold">${sr.qty}×</td>
+                    <td class="p-2.5 font-bold text-slate-900">${esc(sr.item_description)}</td>
+                    <td class="p-2.5 font-semibold text-indigo-700">${esc(sr.supplier_name)}</td>
+                    <td class="p-2.5">${esc(sr.pickup_address || '-')}</td>
+                    <td class="p-2.5 font-semibold">${esc(sr.pickup_datetime || '-')}</td>
+                    <td class="p-2.5 text-slate-600">${esc(sr.notes || '-')}</td>
+                    <td class="p-2.5 text-right">
+                      <button onclick="deleteSubrental('${sr.id}')" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
                     </td>
                   </tr>
                 `).join('')}
@@ -1193,8 +1507,8 @@ function buildPacklistWorkspaceHtml(job, mode) {
 
     ${isModal ? `
       <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end shrink-0">
-        <button onclick="closeJobWindow()" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">
-          ← Fenster schließen & zur Gesamtübersicht
+        <button onclick="closeJobWindow()" class="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">
+          ← Fenster schließen & zur Übersicht
         </button>
       </div>
     ` : ''}
@@ -1222,7 +1536,7 @@ function renderJobs() {
 
   if (filteredJobs.length === 0) {
     container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
-      Noch keine Packlisten vorhanden. Klicke oben auf <b>„+ Neue Packliste anlegen“</b>.
+      Noch keine Packlisten vorhanden. Tippe oben auf <b>„+ Neue Packliste“</b>.
     </div>`;
     return;
   }
@@ -1235,8 +1549,41 @@ function renderJobs() {
   }
 
   if (state.jobsViewMode === 'list') {
-    container.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+    const mobileJobsHtml = `
+      <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+        ${filteredJobs.map(job => {
+          const allLines = state.packlistLines.filter(l => l.job_id === job.id);
+          const packedCount = allLines.filter(l => l.packed).length;
+          const loadedCount = allLines.filter(l => l.loaded).length;
+          const statusBadge = job.status === 'packing'
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
+            : job.status === 'out'
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
+
+          return `
+            <div onclick="openJobInline('${job.id}')" class="p-3.5 active:bg-indigo-50/40 transition flex items-center justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                  ${statusBadge}
+                  ${job.event_date ? `<span class="text-[11px] text-slate-500">📅 ${job.event_date}</span>` : ''}
+                </div>
+                <div class="font-bold text-slate-900 text-sm">📁 ${esc(job.title)}</div>
+                <div class="text-xs text-slate-500 mt-0.5">${allLines.length} Pos. • ${packedCount} gepackt • ${loadedCount} geladen</div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+                <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">Öffnen</button>
+                <button onclick="deleteJob('${job.id}')" class="px-2 py-2 text-slate-400 active:text-red-600 text-xs">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    const desktopJobsHtml = `
+      <div class="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
@@ -1278,13 +1625,13 @@ function renderJobs() {
                   </td>
                   <td class="p-3 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
-                      <button onclick="openJobInline('${job.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                      <button onclick="openJobInline('${job.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
                         Öffnen
                       </button>
-                      <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+                      <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
                         🗔 Fenster
                       </button>
-                      <button onclick="deleteJob('${job.id}')" title="Packliste löschen" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+                      <button onclick="deleteJob('${job.id}')" title="Packliste löschen" class="px-2 py-1.5 text-slate-400 hover:text-red-600">✕</button>
                     </div>
                   </td>
                 </tr>
@@ -1294,8 +1641,10 @@ function renderJobs() {
         </table>
       </div>
     `;
+
+    container.innerHTML = mobileJobsHtml + desktopJobsHtml;
   } else {
-    container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filteredJobs.map(job => {
+    container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">` + filteredJobs.map(job => {
       const allLines = state.packlistLines.filter(l => l.job_id === job.id);
       const packedCount = allLines.filter(l => l.packed).length;
       const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
@@ -1315,7 +1664,7 @@ function renderJobs() {
                 <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
                 ${statusBadge}
               </div>
-              <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1">✕</button>
+              <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1.5 py-1">✕</button>
             </div>
 
             <div class="flex items-start gap-2.5">
@@ -1334,8 +1683,8 @@ function renderJobs() {
               ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumiet.</span>` : ''}
             </div>
             <div class="flex items-center gap-1.5">
-              <button onclick="openJobInline('${job.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Öffnen</button>
-              <button onclick="openJobWindow('${job.id}')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">🗔 Fenster</button>
+              <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Öffnen</button>
+              <button onclick="openJobWindow('${job.id}')" class="hidden md:inline-flex px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">🗔 Fenster</button>
             </div>
           </div>
         </div>
@@ -1343,9 +1692,7 @@ function renderJobs() {
     }).join('') + `</div>`;
   }
 
-  if (state.modalJobId) {
-    renderJobWindow();
-  }
+  if (state.modalJobId) renderJobWindow();
 }
 
 async function updateJobPickupInfo(jobId, val) {
@@ -1374,34 +1721,34 @@ function openNewJobModal() {
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
   openModal(`
     <h3 class="text-lg font-bold mb-3">Neue Packliste anlegen</h3>
-    <p class="text-xs text-slate-500 mb-3">Legt den Job als geschlossene Packliste an. Du kannst sie danach jederzeit per Klick öffnen und wieder schließen.</p>
+    <p class="text-xs text-slate-500 mb-3">Legt den Job als geschlossene Packliste an. Du kannst sie danach jederzeit per Klick öffnen.</p>
     <form onsubmit="saveJob(event)" class="space-y-3 text-sm">
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
-          <select id="job-tenant" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <select id="job-tenant" class="w-full px-3 py-2.5 border rounded-xl bg-white">
             ${state.tenants.map(t => `<option value="${t.id}" ${bghw && t.id === bghw.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Einsatzdatum (optional)</label>
-          <input id="job-date" type="date" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="job-date" type="date" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Job- / Veranstaltungsname</label>
-        <input id="job-title" required placeholder="z. B. Messe BGHW Halle 4" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="job-title" required placeholder="z. B. Messe BGHW Halle 4" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Abhol-Vermerk / Dispo-Hinweis (optional)</label>
-        <input id="job-pickup-info" placeholder="z. B. Abholung am Fr. 09:00 Uhr durch Markus" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="job-pickup-info" placeholder="z. B. Abholung am Fr. 09:00 Uhr durch Markus" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
       <div class="flex justify-end gap-2 pt-3 border-t">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold">Packliste anlegen</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">Packliste anlegen</button>
       </div>
     </form>
   `);
@@ -1518,7 +1865,7 @@ function buildPackSearchCatalog(job) {
 
 function openAddItemToPacklistFromCatalog(itemId) {
   if (state.jobs.length === 0) {
-    alert('Bitte lege zuerst mindestens eine Packliste unter „2. Packlisten & Zumietung“ an.');
+    alert('Bitte lege zuerst mindestens eine Packliste unter „Packliste“ an.');
     return;
   }
   const item = state.items.find(i => i.id === itemId);
@@ -1538,53 +1885,53 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
     ? `
       <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
         <label class="block text-xs font-bold text-indigo-950 mb-1">📁 Ziel-Packliste wählen:</label>
-        <select id="add-pl-job-select" class="w-full px-3 py-2 border border-indigo-300 rounded-lg bg-white font-bold text-slate-900">
+        <select id="add-pl-job-select" class="w-full px-3 py-2.5 border border-indigo-300 rounded-xl bg-white font-bold text-slate-900">
           ${state.jobs.map(j => `<option value="${j.id}" ${j.id === job.id ? 'selected' : ''}>[${esc(tenantName(j.tenant_id))}] ${esc(j.title)}${j.event_date ? ' (' + j.event_date + ')' : ''}</option>`).join('')}
         </select>
       </div>
     `
-    : `<p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> • Hinterlegte Abfragen erscheinen sofort unten.</p>`;
+    : `<p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b></p>`;
 
   openModal(`
-    <h3 class="text-lg font-bold mb-1">➕ Artikel, Zumietung, Set oder Komponente packen</h3>
+    <h3 class="text-lg font-bold mb-1">➕ Artikel / Zumietung packen</h3>
     ${jobHeaderHtml}
     <form onsubmit="saveAddedPackLine(event, '${job.id}')" class="space-y-3 text-sm mt-3">
 
       <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
         <div class="grid grid-cols-12 gap-2 items-end">
-          <div class="col-span-9">
-            <label class="block text-xs font-bold text-slate-800 mb-1">🔍 Suchfeld (Artikel, Zumietung, Set, Komponente)</label>
-            <input id="add-pl-search" type="text" oninput="filterPackSearchPicker()"
-                   placeholder="Suchbegriff eingeben, z. B. Big, TV, Audipack, Zumiet, Reflektor..."
-                   class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none" />
+          <div class="col-span-8 sm:col-span-9">
+            <label class="block text-xs font-bold text-slate-800 mb-1">🔍 Suchfeld (Artikel, Zumietung, Set)</label>
+            <input id="add-pl-search" type="search" oninput="filterPackSearchPicker()"
+                   placeholder="Suchbegriff eingeben..."
+                   class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none" />
           </div>
-          <div class="col-span-3">
+          <div class="col-span-4 sm:col-span-3">
             <label class="block text-xs font-bold text-slate-800 mb-1">Menge</label>
-            <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center font-bold bg-white" />
+            <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2.5 border rounded-xl text-center font-bold bg-white" />
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5 flex-wrap text-[11px]">
-          <button type="button" id="pk-filter-ALL" onclick="setPackSearchKindFilter('ALL')" class="pk-fbtn px-2.5 py-1 rounded-md font-bold bg-indigo-600 text-white">Alle</button>
-          <button type="button" id="pk-filter-OWN" onclick="setPackSearchKindFilter('OWN')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Normale Artikel</button>
-          <button type="button" id="pk-filter-SUB" onclick="setPackSearchKindFilter('SUB')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Zumietartikel</button>
-          <button type="button" id="pk-filter-SETCOMP" onclick="setPackSearchKindFilter('SETCOMP')" class="pk-fbtn px-2.5 py-1 rounded-md font-semibold bg-white border border-slate-300 text-slate-700">Sets & Komponenten</button>
-          <span id="add-pl-hit-count" class="ml-auto text-slate-500 font-semibold"></span>
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs pb-0.5">
+          <button type="button" id="pk-filter-ALL" onclick="setPackSearchKindFilter('ALL')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-bold bg-indigo-600 text-white whitespace-nowrap">Alle</button>
+          <button type="button" id="pk-filter-OWN" onclick="setPackSearchKindFilter('OWN')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Eigene Artikel</button>
+          <button type="button" id="pk-filter-SUB" onclick="setPackSearchKindFilter('SUB')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Zumietartikel</button>
+          <button type="button" id="pk-filter-SETCOMP" onclick="setPackSearchKindFilter('SETCOMP')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Sets & Komp.</button>
+          <span id="add-pl-hit-count" class="ml-auto text-slate-500 font-semibold whitespace-nowrap pl-2"></span>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Gefundener Artikel / Zumietartikel / Komponente:</label>
-          <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold"></select>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Gefundener Artikel:</label>
+          <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold"></select>
           <div id="add-pl-hit-meta" class="text-[11px] text-indigo-700 font-medium mt-1"></div>
         </div>
       </div>
 
-      <div id="add-pl-dimension-box" class="hidden p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-xs">
-        <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen (schreibt Grundkoffer, Zusatzkiste, Reflektor & Grafik):</div>
-        <div class="grid grid-cols-3 gap-2">
+      <div id="add-pl-dimension-box" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2 text-xs">
+        <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen:</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
             <label class="block font-semibold text-blue-900 mb-0.5">Breite (m)</label>
-            <select id="add-pl-width" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+            <select id="add-pl-width" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
               <option value="2">2 m Breite</option>
               <option value="3" selected>3 m Breite</option>
               <option value="4">4 m Breite</option>
@@ -1593,77 +1940,74 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
           </div>
           <div>
             <label class="block font-semibold text-blue-900 mb-0.5">Höhe (m)</label>
-            <select id="add-pl-height" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+            <select id="add-pl-height" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
               <option value="2">2 m Höhe</option>
               <option value="2.48" selected>2,48 m Höhe</option>
             </select>
           </div>
           <div>
             <label class="block font-semibold text-blue-900 mb-0.5">Grafik</label>
-            <select id="add-pl-graphics" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
+            <select id="add-pl-graphics" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
               <option value="1" selected>1× Grafik (einseitig)</option>
               <option value="2">2× Grafik (beidseitig)</option>
               <option value="0">Ohne Grafik</option>
             </select>
           </div>
         </div>
-        <label class="flex items-center gap-2 cursor-pointer text-blue-950">
-          <input id="add-pl-gfx-print" type="checkbox" checked class="w-3.5 h-3.5 rounded text-indigo-600" />
+        <label class="flex items-center gap-2 cursor-pointer text-blue-950 pt-1">
+          <input id="add-pl-gfx-print" type="checkbox" checked class="rounded text-indigo-600" />
           <span>Grafiken auch auf dem Packlisten-Ausdruck anzeigen</span>
         </label>
       </div>
 
-      <div id="add-pl-dynamic-box" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-2.5 text-xs"></div>
+      <div id="add-pl-dynamic-box" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2.5 text-xs"></div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Bezeichnung auf der Packliste</label>
-        <input id="add-pl-name" required placeholder="Wird automatisch aus Auswahl übernommen..." class="w-full px-3 py-2 border rounded-lg" />
+        <input id="add-pl-name" required placeholder="Wird automatisch aus Auswahl übernommen..." class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
-      <label class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
-        <input id="add-pl-is-sub" type="checkbox" class="w-4 h-4 rounded text-amber-600" />
-        <span class="text-xs font-bold text-amber-950">Als Zumietartikel auf der Packliste kennzeichnen (inkl. Zusatzartikel aus Abfragen)</span>
+      <label class="flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+        <input id="add-pl-is-sub" type="checkbox" class="rounded text-amber-600" />
+        <span class="text-xs font-bold text-amber-950">Als Zumietartikel auf der Packliste kennzeichnen</span>
       </label>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Kategorie</label>
-          <input id="add-pl-cat" value="Allgemein" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="add-pl-cat" value="Allgemein" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Lagerort / Vermieter</label>
-          <input id="add-pl-loc" placeholder="z. B. Regal B2 oder Zumietung" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="add-pl-loc" placeholder="z. B. Regal B2 oder Zumietung" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Anmerkung (optional)</label>
-        <input id="add-pl-notes" placeholder="z. B. Abholung Do. 14:00 Uhr" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="add-pl-notes" placeholder="z. B. Abholung Do. 14:00 Uhr" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
-      <label class="flex items-center gap-2 cursor-pointer pt-1">
-        <input id="add-pl-print" type="checkbox" checked class="w-4 h-4 rounded text-indigo-600" />
+      <label class="flex items-center gap-2.5 cursor-pointer pt-1">
+        <input id="add-pl-print" type="checkbox" checked class="rounded text-indigo-600" />
         <span class="text-xs font-semibold text-slate-700">Auf DIN-A4 Ausdruck & Excel anzeigen</span>
       </label>
 
       <div class="flex justify-end gap-2 pt-3 border-t">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Schließen</button>
-        <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">In Packliste packen</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Schließen</button>
+        <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">In Packliste packen</button>
       </div>
     </form>
   `);
 
   filterPackSearchPicker(presetItemId ? `item:${presetItemId}` : null);
-  if (!presetItemId) {
-    setTimeout(() => document.getElementById('add-pl-search')?.focus(), 50);
-  }
 }
 
 function setPackSearchKindFilter(kind) {
   currentPackSearchKindFilter = kind;
   document.querySelectorAll('.pk-fbtn').forEach(btn => {
     const active = btn.id === `pk-filter-${kind}`;
-    btn.className = `pk-fbtn px-2.5 py-1 rounded-md text-[11px] ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-white border border-slate-300 text-slate-700'}`;
+    btn.className = `pk-fbtn px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-white border border-slate-300 text-slate-700'}`;
   });
   filterPackSearchPicker();
 }
@@ -1752,7 +2096,7 @@ function renderAddPackDynamicQuestions(item) {
       return `
         <div class="space-y-1">
           <label class="block font-semibold text-amber-900">${esc(rule.question)}</label>
-          <select id="add-dyn-rule-${rIdx}" onchange="onAddPackDynamicOptionChange(${rIdx})" class="w-full px-2.5 py-1.5 border border-amber-300 rounded-lg bg-white font-semibold">
+          <select id="add-dyn-rule-${rIdx}" onchange="onAddPackDynamicOptionChange(${rIdx})" class="w-full px-3 py-2 border border-amber-300 rounded-xl bg-white font-semibold">
             ${opts.map((opt, oIdx) => {
               const itemsHint = (opt.items || []).filter(i => i && i.name).map(i => `${i.qty || 1}× ${i.name}`).join(', ');
               return `<option value="${oIdx}">${esc(opt.label)}${itemsHint ? ` (${esc(itemsHint)})` : ''}</option>`;
@@ -1794,12 +2138,12 @@ function onAddPackDynamicOptionChange(rIdx) {
   }
 
   subContainer.innerHTML = linkedItems.map(subIt => `
-    <div class="p-2 bg-indigo-50/80 border border-indigo-200 rounded mt-1 space-y-1.5">
+    <div class="p-2 bg-indigo-50/80 border border-indigo-200 rounded-lg mt-1 space-y-1.5">
       <div class="font-bold text-indigo-900 text-[11px]">↳ Optionen für ${esc(subIt.name)}:</div>
       ${subIt.dependency_rules.map((sr, srIdx) => `
         <div>
           <label class="block font-semibold text-indigo-950">${esc(sr.question)}</label>
-          <select class="add-dyn-nested-select w-full px-2 py-1 border border-indigo-300 rounded bg-white"
+          <select class="add-dyn-nested-select w-full px-2.5 py-1.5 border border-indigo-300 rounded-lg bg-white"
                   data-linked-item="${subIt.id}" data-sub-rule="${srIdx}">
             ${(sr.options || []).map((so, soIdx) => `<option value="${soIdx}">${esc(so.label)}</option>`).join('')}
           </select>
@@ -2018,18 +2362,17 @@ function openSubrentalModal(jobId) {
   const subItems = state.items.filter(i => i.is_subrental);
   openModal(`
     <h3 class="text-lg font-bold mb-3">🚐 Zumietung & Abholung eintragen</h3>
-    <p class="text-xs text-slate-500 mb-3">Wähle einen angelegten Zumietartikel oder trage eine Abholadresse ein.</p>
     <form onsubmit="saveSubrental(event, '${jobId}')" class="space-y-3 text-sm">
 
       ${state.pickupLocations.length > 0 ? `
-        <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <label class="block text-xs font-bold text-amber-900 mb-1">📍 Gespeicherte Abholadresse übernehmen:</label>
           <div class="flex gap-2">
-            <select id="sr-saved-loc" onchange="applySavedPickupLocation()" class="flex-1 px-2.5 py-1.5 border border-amber-300 rounded-lg bg-white text-xs font-semibold">
+            <select id="sr-saved-loc" onchange="applySavedPickupLocation()" class="flex-1 px-3 py-2 border border-amber-300 rounded-xl bg-white text-xs font-semibold">
               <option value="">-- Gespeicherte Firma / Adresse wählen --</option>
               ${state.pickupLocations.map(loc => `<option value="${loc.id}">${esc(loc.supplier_name)} – ${esc(loc.pickup_address)}</option>`).join('')}
             </select>
-            <button type="button" onclick="deleteSavedPickupLocation()" title="Gewählte Adresse aus Stamm löschen" class="px-2.5 py-1 bg-white border border-amber-300 rounded-lg text-xs text-red-600 font-bold">✕</button>
+            <button type="button" onclick="deleteSavedPickupLocation()" title="Gewählte Adresse löschen" class="px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs text-red-600 font-bold">✕</button>
           </div>
         </div>
       ` : ''}
@@ -2037,46 +2380,46 @@ function openSubrentalModal(jobId) {
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
           <label class="block text-xs font-semibold mb-1">Zumiet-Artikel / Material</label>
-          <input id="sr-item" list="subrental-items-datalist" required placeholder="Zumietartikel wählen oder eintippen..." class="w-full px-3 py-2 border rounded-lg" />
+          <input id="sr-item" list="subrental-items-datalist" required placeholder="Zumietartikel wählen oder eintippen..." class="w-full px-3 py-2.5 border rounded-xl" />
           <datalist id="subrental-items-datalist">
             ${subItems.map(i => `<option value="${esc(i.name)}"></option>`).join('')}
           </datalist>
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Menge</label>
-          <input id="sr-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center" />
+          <input id="sr-qty" type="number" min="1" value="1" required class="w-full px-3 py-2.5 border rounded-xl text-center" />
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Vermieter / Lieferant (Firma)</label>
-        <input id="sr-supplier" required placeholder="z. B. DryHire Partner GmbH" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="sr-supplier" required placeholder="z. B. DryHire Partner GmbH" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Abholadresse (Straße, PLZ Ort)</label>
-          <input id="sr-address" required placeholder="Musterstraße 12, 50667 Köln" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="sr-address" required placeholder="Musterstraße 12, 50667 Köln" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Abholzeit / Datum</label>
-          <input id="sr-time" required placeholder="z. B. Do. 19.11. um 14:30 Uhr" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="sr-time" required placeholder="z. B. Do. 19.11. um 14:30 Uhr" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
 
       <div>
-        <label class="block text-xs font-semibold mb-1">Abholer / Ansprechpartner / Referenz (optional)</label>
-        <input id="sr-notes" placeholder="z. B. Abholer: Patrick • Tor 3 melden" class="w-full px-3 py-2 border rounded-lg" />
+        <label class="block text-xs font-semibold mb-1">Abholer / Ansprechpartner / Referenz</label>
+        <input id="sr-notes" placeholder="z. B. Abholer: Patrick • Tor 3 melden" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
-      <label class="flex items-center gap-2 cursor-pointer pt-1">
-        <input id="sr-save-loc" type="checkbox" checked class="w-4 h-4 rounded text-amber-600" />
-        <span class="text-xs font-semibold text-slate-700">Firma, Abholadresse & Standard-Hinweis für nächstes Mal speichern</span>
+      <label class="flex items-center gap-2.5 cursor-pointer pt-1">
+        <input id="sr-save-loc" type="checkbox" checked class="rounded text-amber-600" />
+        <span class="text-xs font-semibold text-slate-700">Firma & Abholadresse für nächstes Mal speichern</span>
       </label>
 
       <div class="flex justify-end gap-2 pt-3 border-t">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold">Zumietung speichern</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold">Zumietung speichern</button>
       </div>
     </form>
   `);
@@ -2441,22 +2784,22 @@ function openItemModal(itemId = null) {
   openModal(`
     <h3 class="text-lg font-bold mb-4">${item ? 'Artikel bearbeiten' : 'Neuen Artikel / Zumietartikel erfassen'}</h3>
     <form onsubmit="saveItem(event, '${itemId || ''}')" class="space-y-3 text-sm">
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
-          <select id="it-tenant" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <select id="it-tenant" class="w-full px-3 py-2.5 border rounded-xl bg-white">
             ${state.tenants.map(t => `<option value="${t.id}" ${t.id === defaultTenant ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Kategorie</label>
-          <select id="it-cat-select" onchange="onItemCategorySelectChange()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold">
+          <select id="it-cat-select" onchange="onItemCategorySelectChange()" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold">
             ${categories.map(c => `<option value="${escAttr(c)}" ${c === currentCat ? 'selected' : ''}>${esc(c)}</option>`).join('')}
             <option value="__NEW__">+ Neue Kategorie anlegen...</option>
           </select>
           <div id="it-cat-custom-wrap" class="hidden mt-1.5">
             <input id="it-cat-custom" type="text" placeholder="Neue Kategorie eintippen, z. B. Displays & TV..."
-                   class="w-full px-3 py-1.5 border border-indigo-400 rounded-lg bg-indigo-50/40 text-xs font-semibold" />
+                   class="w-full px-3 py-2 border border-indigo-400 rounded-xl bg-indigo-50/40 text-xs font-semibold" />
           </div>
         </div>
       </div>
@@ -2464,52 +2807,52 @@ function openItemModal(itemId = null) {
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
           <label class="block text-xs font-semibold mb-1">Artikelbezeichnung</label>
-          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. 84 Zoll Fernseher, Audipack, Big LED UP" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. 84 Zoll Fernseher, Audipack..." class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div id="it-qty-wrap" class="${item?.is_subrental ? 'opacity-40 pointer-events-none' : ''}">
-          <label class="block text-xs font-semibold mb-1">Gesamtbestand</label>
-          <input id="it-qty" type="number" min="0" value="${item ? item.total_qty : 1}" class="w-full px-3 py-2 border rounded-lg" />
+          <label class="block text-xs font-semibold mb-1">Bestand</label>
+          <input id="it-qty" type="number" min="0" value="${item ? item.total_qty : 1}" class="w-full px-3 py-2.5 border rounded-xl text-center" />
         </div>
       </div>
 
-      <label class="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
-        <input id="it-subrental" type="checkbox" ${item?.is_subrental ? 'checked' : ''} onchange="toggleSubrentalItemMode()" class="w-4 h-4 rounded text-amber-600" />
+      <label class="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+        <input id="it-subrental" type="checkbox" ${item?.is_subrental ? 'checked' : ''} onchange="toggleSubrentalItemMode()" class="rounded text-amber-600 shrink-0" />
         <div>
           <div class="text-xs font-bold text-amber-950">Zumietartikel (taucht NICHT im eigenen Lagerbestand auf)</div>
-          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Suche & Auswahl und unten auf der Packliste als Zumietartikel (inkl. Zusatzartikel aus Abfragen).</div>
+          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Suche und unten auf der Packliste als Zumietartikel.</div>
         </div>
       </label>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div id="it-loc-wrap" class="${item?.is_subrental ? 'opacity-40 pointer-events-none' : ''}">
           <label class="block text-xs font-semibold mb-1">Lagerplatz (optional)</label>
-          <input id="it-loc" value="${esc(item?.storage_location || '')}" placeholder="z. B. Regal B2 / Gitterbox 1" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="it-loc" value="${esc(item?.storage_location || '')}" placeholder="z. B. Regal B2 / Gitterbox 1" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Pack-Logik / Artikeltyp</label>
-          <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2.5 border rounded-xl bg-white">
             <option value="single" ${(!item || item.item_type === 'single') ? 'selected' : ''}>Einzelartikel (Stückzahl)</option>
             <option value="bundle" ${item?.item_type === 'bundle' ? 'selected' : ''}>Komponenten-Set (feste Bestandteile)</option>
-            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: Breite & Höhe 2m / 2,48m)</option>
+            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP)</option>
           </select>
         </div>
       </div>
 
       <div id="bundle-fields" class="${item?.item_type === 'bundle' ? '' : 'hidden'} p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-2">
         <div class="text-xs font-bold text-purple-900">Feste Set-Komponenten (eine pro Zeile, z. B. "1x Schrägsteller"):</div>
-        <textarea id="it-bundle-text" rows="3" placeholder="1x Schrägsteller&#10;1x Transportcase" class="w-full px-3 py-2 border rounded-lg text-xs">${comps.map(c => `${c.qty_per_unit}x ${c.component_name}`).join('\n')}</textarea>
+        <textarea id="it-bundle-text" rows="3" placeholder="1x Schrägsteller&#10;1x Transportcase" class="w-full px-3 py-2 border rounded-xl text-xs">${comps.map(c => `${c.qty_per_unit}x ${c.component_name}`).join('\n')}</textarea>
       </div>
 
       <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-        <div class="text-xs font-bold text-blue-900">Big LED UP Positionen (ohne Hauptzeile – nur Grundkoffer, Zusatzkiste, Reflektor & Grafik):</div>
+        <div class="text-xs font-bold text-blue-900">Big LED UP Positionen:</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
           <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.01" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
           <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.01" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Erweiterungs-Schritt (m)</label><input id="dim-step" type="number" step="0.01" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Schritt (m)</label><input id="dim-step" type="number" step="0.01" value="${cfg.step_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div><label>Grundkoffer-Name</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Zusatzkiste-Name (ab 3m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Zusatzkiste-Name</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div><label>Reflektor-Bezeichnung</label><input id="dim-ref" value="${esc(cfg.reflector_item || 'Reflektor')}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
@@ -2520,27 +2863,27 @@ function openItemModal(itemId = null) {
       <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <div class="text-xs font-bold text-slate-900">🔗 Dispo-Abfragen & Zubehör-Verknüpfungen (optional)</div>
-            <div class="text-[11px] text-slate-500">Fragt beim Packen nach Zubehör (z. B. Audipack, Ablage, Rollen, HDMI-Kabel, Strom).</div>
+            <div class="text-xs font-bold text-slate-900">🔗 Dispo-Abfragen & Zubehör (optional)</div>
+            <div class="text-[11px] text-slate-500">Fragt beim Packen nach Zubehör (z. B. Audipack, HDMI, Strom).</div>
           </div>
-          <button type="button" onclick="addDependencyRule()" class="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold shrink-0">+ Abfrage</button>
+          <button type="button" onclick="addDependencyRule()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shrink-0">+ Abfrage</button>
         </div>
         <div id="dep-rules-editor" class="space-y-2"></div>
       </div>
 
-      <label id="it-dguv-wrap" class="flex items-center gap-2 pt-1 cursor-pointer ${item?.is_subrental ? 'hidden' : ''}">
-        <input id="it-dguv" type="checkbox" ${item?.is_dguv ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600" />
-        <span class="text-xs font-semibold text-slate-700">Elektrisches Betriebsmittel (DGUV V3 / Benning 755+ Prüfung erforderlich)</span>
+      <label id="it-dguv-wrap" class="flex items-center gap-2.5 pt-1 cursor-pointer ${item?.is_subrental ? 'hidden' : ''}">
+        <input id="it-dguv" type="checkbox" ${item?.is_dguv ? 'checked' : ''} class="rounded text-indigo-600 shrink-0" />
+        <span class="text-xs font-semibold text-slate-700">Elektrisches Betriebsmittel (DGUV V3 / Benning 755+ Prüfung)</span>
       </label>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Notizen (optional)</label>
-        <input id="it-notes" value="${esc(item?.notes || '')}" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="it-notes" value="${esc(item?.notes || '')}" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
 
       <div class="flex justify-end gap-2 pt-3 border-t">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Speichern</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold">Speichern</button>
       </div>
     </form>
   `);
@@ -2583,29 +2926,29 @@ function renderDependencyRulesEditor() {
   }
 
   container.innerHTML = editingRules.map((rule, rIdx) => `
-    <div class="p-2.5 bg-white border border-slate-300 rounded-lg space-y-2 text-xs">
+    <div class="p-2.5 bg-white border border-slate-300 rounded-xl space-y-2 text-xs">
       <div class="flex items-center gap-2">
-        <span class="font-bold text-indigo-700">Frage ${rIdx + 1}:</span>
+        <span class="font-bold text-indigo-700 shrink-0">Frage ${rIdx + 1}:</span>
         <input type="text" value="${esc(rule.question)}" oninput="editingRules[${rIdx}].question = this.value"
-               placeholder="z. B. Audipack dazu? oder HDMI-Kabel Länge?" class="flex-1 px-2 py-1 border rounded font-semibold" />
-        <button type="button" onclick="editingRules.splice(${rIdx}, 1); renderDependencyRulesEditor();" class="text-red-500 font-bold px-1">✕</button>
+               placeholder="z. B. Audipack dazu?" class="flex-1 px-2.5 py-1.5 border rounded-lg font-semibold" />
+        <button type="button" onclick="editingRules.splice(${rIdx}, 1); renderDependencyRulesEditor();" class="text-red-500 font-bold px-2 py-1">✕</button>
       </div>
-      <div class="space-y-1.5 pl-3 border-l-2 border-indigo-200">
+      <div class="space-y-1.5 pl-2.5 border-l-2 border-indigo-200">
         ${(rule.options || []).map((opt, oIdx) => {
           const itemsStr = (opt.items || []).filter(i => i && i.name).map(it => `${it.qty || 1}x ${it.name}`).join(', ');
           return `
             <div class="grid grid-cols-12 gap-1.5 items-center">
               <input type="text" value="${esc(opt.label)}" oninput="editingRules[${rIdx}].options[${oIdx}].label = this.value"
-                     placeholder="Antwort (z. B. Ja)" class="col-span-4 px-2 py-1 border rounded bg-slate-50" />
+                     placeholder="Antwort (Ja)" class="col-span-4 px-2 py-1.5 border rounded-lg bg-slate-50" />
               <span class="col-span-1 text-center text-slate-400">→</span>
               <input type="text" value="${esc(itemsStr)}" oninput="updateRuleOptionItems(${rIdx}, ${oIdx}, this.value)"
-                     placeholder="Artikel (z. B. 1x Audipack oder leer)" class="col-span-6 px-2 py-1 border rounded" />
-              <button type="button" onclick="editingRules[${rIdx}].options.splice(${oIdx}, 1); renderDependencyRulesEditor();" class="col-span-1 text-slate-400 hover:text-red-600 text-center">✕</button>
+                     placeholder="1x Audipack" class="col-span-6 px-2 py-1.5 border rounded-lg" />
+              <button type="button" onclick="editingRules[${rIdx}].options.splice(${oIdx}, 1); renderDependencyRulesEditor();" class="col-span-1 text-slate-400 hover:text-red-600 text-center py-1">✕</button>
             </div>
           `;
         }).join('')}
         <button type="button" onclick="editingRules[${rIdx}].options.push({ label: '', items: [] }); renderDependencyRulesEditor();"
-                class="text-[11px] text-indigo-600 hover:underline font-semibold">+ Antwort-Option hinzufügen</button>
+                class="text-xs text-indigo-600 hover:underline font-semibold py-1">+ Antwort-Option hinzufügen</button>
       </div>
     </div>
   `).join('');
@@ -2724,15 +3067,15 @@ function updateWorkshopViewToggleButtons() {
   const btnList = document.getElementById('ws-view-mode-list');
   const btnGrid = document.getElementById('ws-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function setWorkshopFilter(f) {
   state.workshopFilter = f;
   document.querySelectorAll('.ws-filter-btn').forEach(btn => {
     const active = btn.id === `ws-filter-${f}`;
-    btn.className = `ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+    btn.className = `ws-filter-btn px-3 py-2 rounded-xl text-xs whitespace-nowrap ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
   });
   renderWorkshop();
 }
@@ -2741,6 +3084,8 @@ function renderWorkshop() {
   updateWorkshopViewToggleButtons();
   const openTickets = state.workshopTickets.filter(t => t.status !== 'archived' && (state.selectedTenant === 'ALL' || t.tenant_id === state.selectedTenant));
   document.getElementById('workshop-badge').textContent = openTickets.length;
+  const mobBadge = document.getElementById('workshop-badge-mob');
+  if (mobBadge) mobBadge.textContent = openTickets.length;
 
   let list = state.workshopTickets.filter(t => state.selectedTenant === 'ALL' || t.tenant_id === state.selectedTenant);
   if (state.workshopFilter === 'OPEN_ALL') {
@@ -2760,8 +3105,39 @@ function renderWorkshop() {
   }
 
   if (state.workshopViewMode === 'list') {
-    container.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+    const mobileWsList = `
+      <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+        ${list.map(t => {
+          const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
+            : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
+          return `
+            <div class="p-3.5 space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${locColor}">📍 ${esc(t.location)}</span>
+              </div>
+              <div class="flex items-start justify-between gap-2.5">
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-slate-900 text-sm">${t.qty}× ${esc(t.item_name)}</div>
+                  <div class="text-xs text-rose-800 mt-0.5">${esc(t.description)}</div>
+                  <div class="text-[11px] text-slate-400 mt-1">${new Date(t.reported_at).toLocaleDateString('de-DE')} • ${esc(t.reported_by || 'Team')}</div>
+                </div>
+                ${(t.photo_url && !t.photo_deleted) ? `<a href="${t.photo_url}" target="_blank" class="shrink-0"><img src="${t.photo_url}" alt="Foto" class="w-14 h-14 object-cover rounded-xl border border-slate-200" /></a>` : ''}
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-800 font-semibold">📤 Teilen</button>
+                ${t.status !== 'archived'
+                  ? `<button onclick="openRepairModal('${t.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold">✅ Repariert</button>`
+                  : `<button onclick="deleteTicket('${t.id}')" class="px-2.5 py-2 text-slate-400">✕</button>`}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    const desktopWsTable = `
+      <div class="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
@@ -2811,15 +3187,15 @@ function renderWorkshop() {
                   </td>
                   <td class="p-3 align-middle text-right whitespace-nowrap">
                     <div class="inline-flex items-center gap-1.5 text-xs">
-                      <button onclick="shareTicket('${t.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+                      <button onclick="shareTicket('${t.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
                         📤 Teilen
                       </button>
                       ${t.status !== 'archived' ? `
-                        <button onclick="openRepairModal('${t.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        <button onclick="openRepairModal('${t.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
                           ✅ Repariert
                         </button>
                       ` : `
-                        <button onclick="deleteTicket('${t.id}')" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+                        <button onclick="deleteTicket('${t.id}')" class="px-2 py-1.5 text-slate-400 hover:text-red-600">✕</button>
                       `}
                     </div>
                   </td>
@@ -2830,17 +3206,19 @@ function renderWorkshop() {
         </table>
       </div>
     `;
+
+    container.innerHTML = mobileWsList + desktopWsTable;
     return;
   }
 
-  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + list.map(t => {
+  container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">` + list.map(t => {
     const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
       : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
 
     let photoHtml = '';
     if (t.photo_url && !t.photo_deleted) {
       photoHtml = `<a href="${t.photo_url}" target="_blank" class="block mt-2">
-        <img src="${t.photo_url}" alt="Schadensfoto" class="w-full h-44 object-cover rounded-lg border border-slate-200" />
+        <img src="${t.photo_url}" alt="Schadensfoto" class="w-full h-44 object-cover rounded-xl border border-slate-200" />
       </a>`;
     } else if (t.photo_deleted) {
       photoHtml = `<div class="mt-2 p-2.5 rounded-lg bg-slate-100 text-[11px] text-slate-500 italic">Foto nach 6 Monaten Archivierung automatisch gelöscht.</div>`;
@@ -2854,7 +3232,7 @@ function renderWorkshop() {
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
           </div>
           <h3 class="font-bold text-base text-slate-900 mt-2">${t.qty}× ${esc(t.item_name)}</h3>
-          <p class="text-sm text-slate-700 mt-1 bg-rose-50/70 p-2.5 rounded-lg border border-rose-100">${esc(t.description)}</p>
+          <p class="text-sm text-slate-700 mt-1 bg-rose-50/70 p-2.5 rounded-xl border border-rose-100">${esc(t.description)}</p>
           ${photoHtml}
           <div class="text-[11px] text-slate-400 mt-2">
             Gemeldet von <b>${esc(t.reported_by || 'Team')}</b> am ${new Date(t.reported_at).toLocaleDateString('de-DE')}
@@ -2863,21 +3241,20 @@ function renderWorkshop() {
             <div class="mt-2 p-2 rounded bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
               ✅ Repariert am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}
               ${t.repair_notes ? `<br/>Notiz: ${esc(t.repair_notes)}` : ''}
-              ${t.delete_photo_after && !t.photo_deleted ? `<br/><span class="text-[11px] text-emerald-700">Foto-Löschung am: ${new Date(t.delete_photo_after).toLocaleDateString('de-DE')}</span>` : ''}
             </div>
           ` : ''}
         </div>
 
         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-xs">
-          <button onclick="shareTicket('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
-            📤 Mit Kollegen teilen
+          <button onclick="shareTicket('${t.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+            📤 Teilen
           </button>
           ${t.status !== 'archived' ? `
-            <button onclick="openRepairModal('${t.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-              ✅ Repariert → Zurück ins Lager
+            <button onclick="openRepairModal('${t.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              ✅ Repariert
             </button>
           ` : `
-            <button onclick="deleteTicket('${t.id}')" class="px-2.5 py-1.5 text-slate-400 hover:text-red-600">Eintrag entfernen</button>
+            <button onclick="deleteTicket('${t.id}')" class="px-2.5 py-2 text-slate-400 hover:text-red-600">Entfernen</button>
           `}
         </div>
       </div>
@@ -2915,8 +3292,8 @@ function updateDguvViewToggleButtons() {
   const btnList = document.getElementById('dguv-view-mode-list');
   const btnGrid = document.getElementById('dguv-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function renderDguv() {
@@ -2929,7 +3306,7 @@ function renderDguv() {
 
   if (rows.length === 0) {
     container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500 text-sm">
-      Noch keine DGUV V3 Prüfprotokolle hinterlegt. Klicke auf <b>„+ Benning-Prüfung / PDF erfassen“</b>.
+      Noch keine DGUV V3 Prüfprotokolle hinterlegt. Tippe auf <b>„+ Benning-Prüfung / PDF“</b>.
     </div>`;
     return;
   }
@@ -2937,8 +3314,38 @@ function renderDguv() {
   const today = new Date().toISOString().slice(0, 10);
 
   if (state.dguvViewMode === 'list') {
-    container.innerHTML = `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+    const mobileDguvList = `
+      <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+        ${rows.map(r => {
+          const expired = r.next_test_date && r.next_test_date < today;
+          const badge = r.status === 'failed'
+            ? `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 text-[11px] font-bold">Mangel</span>`
+            : expired
+            ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] font-bold">Fällig</span>`
+            : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px] font-bold">OK</span>`;
+          return `
+            <div class="p-3.5 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(r.item.tenant_id))}</span>
+                ${badge}
+              </div>
+              <div class="font-bold text-slate-900 text-sm">${esc(r.item.name)}</div>
+              <div class="text-xs text-slate-600 flex flex-wrap gap-3">
+                <span>ID: <b class="font-mono">${esc(r.benning_id)}</b></span>
+                <span>Nächste: <b>${r.next_test_date || '-'}</b></span>
+              </div>
+              <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="px-3 py-2 rounded-xl bg-indigo-600 text-white font-bold">📄 PDF öffnen</a>` : `<span class="text-slate-400">Kein PDF</span>`}
+                <button onclick="deleteDguv('${r.id}')" class="px-2.5 py-2 text-slate-400">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    const desktopDguvTable = `
+      <div class="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
@@ -2982,10 +3389,12 @@ function renderDguv() {
         </table>
       </div>
     `;
+
+    container.innerHTML = mobileDguvList + desktopDguvTable;
     return;
   }
 
-  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + rows.map(r => {
+  container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">` + rows.map(r => {
     const expired = r.next_test_date && r.next_test_date < today;
     const badge = r.status === 'failed'
       ? `<span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-bold">Nicht bestanden</span>`
@@ -3001,7 +3410,7 @@ function renderDguv() {
             ${badge}
           </div>
           <h3 class="font-bold text-base text-slate-900">${esc(r.item.name)}</h3>
-          <div class="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs space-y-1">
+          <div class="mt-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1">
             <div><span class="text-slate-500">Benning-Prüfnr.:</span> <span class="font-mono font-extrabold text-slate-900">${esc(r.benning_id)}</span></div>
             <div><span class="text-slate-500">Prüfdatum:</span> <b>${r.test_date || '-'}</b></div>
             <div><span class="text-slate-500">Nächste Prüfung:</span> <b>${r.next_test_date || '-'}</b></div>
@@ -3010,9 +3419,9 @@ function renderDguv() {
 
         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
           ${r.pdf_url
-            ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">📄 Benning-PDF öffnen</a>`
+            ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">📄 Benning-PDF öffnen</a>`
             : `<span class="text-slate-400 italic">Kein PDF hinterlegt</span>`}
-          <button onclick="deleteDguv('${r.id}')" title="Prüfung löschen" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+          <button onclick="deleteDguv('${r.id}')" title="Prüfung löschen" class="px-2.5 py-2 text-slate-400 hover:text-red-600">✕</button>
         </div>
       </div>
     `;
@@ -3030,10 +3439,10 @@ function renderStocktake() {
   document.getElementById('stocktake-print-area').innerHTML = `
     <div class="flex justify-between items-end border-b-2 border-slate-800 pb-3 mb-4">
       <div>
-        <h1 class="text-xl font-extrabold uppercase tracking-wide">Inventur- & Zählliste: ${esc(titleName)}</h1>
+        <h1 class="text-lg md:text-xl font-extrabold uppercase tracking-wide">Inventur- & Zählliste: ${esc(titleName)}</h1>
         <p class="text-xs text-slate-600 mt-0.5">Erstellt am ${new Date().toLocaleDateString('de-DE')} • Gezählt von: _________________________</p>
       </div>
-      <div class="text-right text-xs text-slate-500">Positionen: ${items.length}</div>
+      <div class="text-right text-xs text-slate-500 shrink-0">Pos.: ${items.length}</div>
     </div>
 
     <table class="w-full text-left border-collapse text-xs print-table">
@@ -3043,11 +3452,11 @@ function renderStocktake() {
           <th class="p-2 border border-slate-300">Kategorie</th>
           <th class="p-2 border border-slate-300">Artikel / System</th>
           <th class="p-2 border border-slate-300">Lagerplatz</th>
-          <th class="p-2 border border-slate-300 text-center">Soll Gesamt</th>
-          <th class="p-2 border border-slate-300 text-center">In Werkstatt</th>
-          <th class="p-2 border border-slate-300 text-center">Im Regal</th>
-          <th class="p-2 border border-slate-300 w-24 text-center">Ist Gezählt</th>
-          <th class="p-2 border border-slate-300 w-40">Bemerkung / DGUV</th>
+          <th class="p-2 border border-slate-300 text-center">Soll</th>
+          <th class="p-2 border border-slate-300 text-center">Werkstatt</th>
+          <th class="p-2 border border-slate-300 text-center">Regal</th>
+          <th class="p-2 border border-slate-300 w-20 text-center">Ist</th>
+          <th class="p-2 border border-slate-300 w-36">Bemerkung</th>
         </tr>
       </thead>
       <tbody>
@@ -3091,15 +3500,15 @@ function openNewTenantModal() {
     <form onsubmit="saveTenant(event)" class="space-y-3">
       <div>
         <label class="block text-xs font-semibold mb-1">Bereichsname (z. B. BGHW, FES, Eigenbestand)</label>
-        <input id="new-tenant-name" required class="w-full px-3 py-2 border rounded-lg text-sm" />
+        <input id="new-tenant-name" required class="w-full px-3 py-2.5 border rounded-xl text-sm" />
       </div>
       <div>
         <label class="block text-xs font-semibold mb-1">Beschreibung (optional)</label>
-        <input id="new-tenant-desc" class="w-full px-3 py-2 border rounded-lg text-sm" />
+        <input id="new-tenant-desc" class="w-full px-3 py-2.5 border rounded-xl text-sm" />
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold">Speichern</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-sm text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Speichern</button>
       </div>
     </form>
   `);
@@ -3121,16 +3530,16 @@ function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobI
   openModal(`
     <h3 class="text-lg font-bold text-rose-700 mb-3">🔧 Defekt melden & in Werkstatt einbuchen</h3>
     <form onsubmit="saveDefect(event, '${itemId || ''}', '${jobId || ''}', '${packLineId || ''}')" class="space-y-3 text-sm">
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Bestandsbereich</label>
-          <select id="def-tenant" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <select id="def-tenant" class="w-full px-3 py-2.5 border rounded-xl bg-white">
             ${state.tenants.map(t => `<option value="${t.id}" ${t.id === defaultTenant ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Zielort / Zuständig</label>
-          <select id="def-location" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold">
+          <select id="def-location" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold">
             <option value="Lager">Lager</option>
             <option value="Büro G7">Büro G7 (Patrick / Markus)</option>
             <option value="Daniel Werkstatt">Daniel Werkstatt</option>
@@ -3141,27 +3550,27 @@ function openDefectModal(itemId = '', presetName = '', presetTenantId = '', jobI
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
           <label class="block text-xs font-semibold mb-1">Betroffener Artikel / Komponente</label>
-          <input id="def-name" required value="${esc(presetName || item?.name || '')}" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="def-name" required value="${esc(presetName || item?.name || '')}" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Menge</label>
-          <input id="def-qty" type="number" min="1" value="1" class="w-full px-3 py-2 border rounded-lg text-center" />
+          <input id="def-qty" type="number" min="1" value="1" class="w-full px-3 py-2.5 border rounded-xl text-center" />
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-semibold mb-1">Was ist kaputt / auffällig?</label>
-        <textarea id="def-desc" required rows="2" class="w-full px-3 py-2 border rounded-lg"></textarea>
+        <textarea id="def-desc" required rows="2" class="w-full px-3 py-2.5 border rounded-xl"></textarea>
       </div>
 
-      <div class="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
-        <label class="block text-xs font-bold text-slate-700 mb-1">📷 Foto aufnehmen oder auswählen (optional)</label>
-        <input id="def-photo" type="file" accept="image/*" capture="environment" class="text-xs w-full" />
+      <div class="p-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">📷 Handy-Kamera / Foto auswählen (optional)</label>
+        <input id="def-photo" type="file" accept="image/*" capture="environment" class="text-xs w-full py-1" />
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" id="def-submit-btn" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold">Defekt speichern</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" id="def-submit-btn" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold">Defekt speichern</button>
       </div>
     </form>
   `);
@@ -3247,11 +3656,11 @@ function openRepairModal(ticketId) {
     <form onsubmit="completeRepair(event, '${ticketId}')" class="space-y-3 text-sm">
       <div>
         <label class="block text-xs font-semibold mb-1">Reparatur-Notiz (optional)</label>
-        <input id="rep-notes" placeholder="z. B. Neuen Stecker montiert & getestet" class="w-full px-3 py-2 border rounded-lg" />
+        <input id="rep-notes" placeholder="z. B. Neuen Stecker montiert & getestet" class="w-full px-3 py-2.5 border rounded-xl" />
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2 bg-emerald-600 text-white rounded-lg font-bold">Zurück in den Bestand</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold">Zurück in den Bestand</button>
       </div>
     </form>
   `);
@@ -3295,18 +3704,18 @@ function openDguvModal(presetItemId = '') {
     <form onsubmit="saveDguv(event)" class="space-y-3 text-sm">
       <div>
         <label class="block text-xs font-semibold mb-1">Elektrisches Gerät / Artikel</label>
-        <select id="dg-item" class="w-full px-3 py-2 border rounded-lg bg-white">
+        <select id="dg-item" class="w-full px-3 py-2.5 border rounded-xl bg-white">
           ${pool.map(i => `<option value="${i.id}" ${i.id === presetItemId ? 'selected' : ''}>[${esc(tenantName(i.tenant_id))}] ${esc(i.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Benning-Prüfnummer / ID</label>
-          <input id="dg-benning-id" required placeholder="z. B. 0042" class="w-full px-3 py-2 border rounded-lg font-mono" />
+          <input id="dg-benning-id" required placeholder="z. B. 0042" class="w-full px-3 py-2.5 border rounded-xl font-mono" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Prüfergebnis</label>
-          <select id="dg-status" class="w-full px-3 py-2 border rounded-lg bg-white">
+          <select id="dg-status" class="w-full px-3 py-2.5 border rounded-xl bg-white">
             <option value="passed">Bestanden (OK)</option>
             <option value="failed">Nicht bestanden (Mangel)</option>
           </select>
@@ -3315,20 +3724,20 @@ function openDguvModal(presetItemId = '') {
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold mb-1">Prüfdatum</label>
-          <input id="dg-date" type="date" value="${today}" required class="w-full px-3 py-2 border rounded-lg" />
+          <input id="dg-date" type="date" value="${today}" required class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Nächste Prüfung fällig</label>
-          <input id="dg-next" type="date" value="${nextYear}" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="dg-next" type="date" value="${nextYear}" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
-      <div class="p-3 bg-indigo-50 border border-dashed border-indigo-300 rounded-xl">
-        <label class="block text-xs font-bold text-indigo-900 mb-1">📄 Benning 755+ Prüfprotokoll (PDF)</label>
-        <input id="dg-pdf" type="file" accept="application/pdf" class="text-xs w-full" />
+      <div class="p-3.5 bg-indigo-50 border border-dashed border-indigo-300 rounded-xl">
+        <label class="block text-xs font-bold text-indigo-900 mb-1.5">📄 Benning 755+ Prüfprotokoll (PDF)</label>
+        <input id="dg-pdf" type="file" accept="application/pdf" class="text-xs w-full py-1" />
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600">Abbrechen</button>
-        <button type="submit" id="dg-submit" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold">Prüfung speichern</button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
+        <button type="submit" id="dg-submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold">Prüfung speichern</button>
       </div>
     </form>
   `);
