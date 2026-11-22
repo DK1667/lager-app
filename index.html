@@ -222,7 +222,7 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 3: WERKSTATT & ARCHIV                                         -->
+      <!-- TAB 3: WERKSTATT & ARCHIV (MIT LISTE / KACHELN UMSCHALTER)        -->
       <!-- ================================================================= -->
       <section id="view-workshop" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -233,15 +233,27 @@
             <button onclick="setWorkshopFilter('Daniel Werkstatt')" id="ws-filter-Daniel Werkstatt" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Daniel Werkstatt</button>
             <button onclick="setWorkshopFilter('ARCHIVED')" id="ws-filter-ARCHIVED" class="ws-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">Archiv (6 Monate Foto-Aufbewahrung)</button>
           </div>
-          <button onclick="openDefectModal(null)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm">
-            + Defekt direkt melden (mit Handy-Foto)
-          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+              <button type="button" id="ws-view-mode-list" onclick="setWorkshopViewMode('list')"
+                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 transition">
+                ☰ Liste
+              </button>
+              <button type="button" id="ws-view-mode-grid" onclick="setWorkshopViewMode('grid')"
+                      class="px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                ⊞ Kacheln
+              </button>
+            </div>
+            <button onclick="openDefectModal(null)" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm">
+              + Defekt direkt melden (mit Handy-Foto)
+            </button>
+          </div>
         </div>
-        <div id="workshop-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div id="workshop-container"></div>
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 4: DGUV V3 / BENNING ST 755+                                  -->
+      <!-- TAB 4: DGUV V3 / BENNING ST 755+ (MIT LISTE / KACHELN UMSCHALTER) -->
       <!-- ================================================================= -->
       <section id="view-dguv" class="hidden space-y-4">
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -249,11 +261,23 @@
             <h2 class="font-bold text-lg text-slate-900">DGUV V3 Prüfungen (Benning ST 755+)</h2>
             <p class="text-xs text-slate-500">Prüfnummern & PDF-Prüfprotokolle direkt am elektrischen Gerät hinterlegen und per Klick öffnen.</p>
           </div>
-          <button onclick="openDguvModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
-            + Benning-Prüfung / PDF erfassen
-          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50 text-xs">
+              <button type="button" id="dguv-view-mode-list" onclick="setDguvViewMode('list')"
+                      class="px-3 py-2 font-bold flex items-center gap-1.5 transition">
+                ☰ Liste
+              </button>
+              <button type="button" id="dguv-view-mode-grid" onclick="setDguvViewMode('grid')"
+                      class="px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition">
+                ⊞ Kacheln
+              </button>
+            </div>
+            <button onclick="openDguvModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm">
+              + Benning-Prüfung / PDF erfassen
+            </button>
+          </div>
         </div>
-        <div id="dguv-list" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"></div>
+        <div id="dguv-container"></div>
       </section>
 
       <!-- ================================================================= -->
@@ -311,6 +335,8 @@ let state = {
   workshopFilter: 'OPEN_ALL',
   inventoryViewMode: localStorage.getItem('lw_inv_view') || 'list',
   jobsViewMode: localStorage.getItem('lw_jobs_view') || 'list',
+  workshopViewMode: localStorage.getItem('lw_ws_view') || 'list',
+  dguvViewMode: localStorage.getItem('lw_dguv_view') || 'list',
   sortField: 'name',
   sortDir: 'asc'
 };
@@ -392,6 +418,8 @@ async function onAuthenticated(user) {
 
   updateViewToggleButtons();
   updateJobsViewToggleButtons();
+  updateWorkshopViewToggleButtons();
+  updateDguvViewToggleButtons();
   await runSixMonthPhotoCleanup();
   await loadAllData();
 }
@@ -504,6 +532,12 @@ function tenantName(id) {
   return t ? t.name : 'Unbekannt';
 }
 
+function getAllCategories() {
+  const defaults = ['Allgemein', 'Video & Bühne', 'LED-Systeme', 'Audio', 'Licht', 'Strom & Kabel', 'Rigging & Truss'];
+  const fromItems = state.items.map(i => (i.category || '').trim()).filter(Boolean);
+  return [...new Set([...fromItems, ...defaults])].sort((a, b) => a.localeCompare(b, 'de'));
+}
+
 function getDefectiveQtyForItem(itemId) {
   return state.workshopTickets
     .filter(w => w.item_id === itemId && w.status !== 'archived')
@@ -612,7 +646,7 @@ function renderInventory() {
   const catFilter = document.getElementById('inv-cat-filter').value;
   const typeFilter = document.getElementById('inv-type-filter').value;
 
-  const cats = [...new Set(state.items.map(i => i.category).filter(Boolean))].sort();
+  const cats = [...new Set(state.items.map(i => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
   const catSel = document.getElementById('inv-cat-filter');
   catSel.innerHTML = `<option value="ALL">Alle Kategorien</option>` + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   if ([...catSel.options].some(o => o.value === catFilter)) catSel.value = catFilter;
@@ -853,7 +887,7 @@ function renderInventory() {
           <div class="flex gap-1.5">
             ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
             <button onclick="openItemModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Bearbeiten</button>
-            <button onclick="deleteItem('${item.id}')" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
+            <button onclick="deleteItem('${item.id}')" class="px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-red-600">✕</button>
           </div>
         </div>
       </div>
@@ -1097,7 +1131,6 @@ function buildPacklistWorkspaceHtml(job, mode) {
         </table>
       </div>
 
-      <!-- Abholscheine & Lieferanten-Adressen -->
       <div class="p-4 bg-slate-50/90 border-t border-slate-200">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <div class="flex items-center gap-2">
@@ -1194,7 +1227,6 @@ function renderJobs() {
     return;
   }
 
-  // Wenn eine Packliste im Hauptfenster geöffnet wurde, zeige sie dort direkt an
   const activeInlineJob = state.openJobId ? filteredJobs.find(j => j.id === state.openJobId) : null;
   if (activeInlineJob) {
     container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">${buildPacklistWorkspaceHtml(activeInlineJob, 'inline')}</div>`;
@@ -1202,7 +1234,6 @@ function renderJobs() {
     return;
   }
 
-  // Listen-Ansicht aller geschlossenen Packlisten
   if (state.jobsViewMode === 'list') {
     container.innerHTML = `
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
@@ -1264,11 +1295,9 @@ function renderJobs() {
       </div>
     `;
   } else {
-    // Kachel-Ansicht aller geschlossenen Packlisten
     container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + filteredJobs.map(job => {
       const allLines = state.packlistLines.filter(l => l.job_id === job.id);
       const packedCount = allLines.filter(l => l.packed).length;
-      const loadedCount = allLines.filter(l => l.loaded).length;
       const subLinesCount = allLines.filter(l => isLineSubrental(l)).length;
 
       const statusBadge = job.status === 'packing'
@@ -1339,7 +1368,7 @@ async function deletePackLine(lineId) {
 }
 
 // ============================================================================
-// PACKLISTE ANLEGEN (NUR JOB ANLEGEN, PACKLISTE BLEIBT GESCHLOSSEN)
+// PACKLISTE ANLEGEN
 // ============================================================================
 function openNewJobModal() {
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
@@ -1402,7 +1431,6 @@ async function saveJob(e) {
 
 // ============================================================================
 // SUCHE & AUSWAHL FÜR ARTIKEL, ZUMIETARTIKEL, SETS & KOMPONENTEN
-// (SOWOHL AUS DER PACKLISTE HERAUS ALS AUCH DIREKT AUS "BESTAND & ARTIKEL")
 // ============================================================================
 let currentPackSearchEntries = [];
 let currentPackSearchKindFilter = 'ALL';
@@ -1551,7 +1579,6 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
         </div>
       </div>
 
-      <!-- Spezielle Big LED UP Abfrage: BREITE und HÖHE getrennt (ohne Hauptzeile!) -->
       <div id="add-pl-dimension-box" class="hidden p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-xs">
         <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen (schreibt Grundkoffer, Zusatzkiste, Reflektor & Grafik):</div>
         <div class="grid grid-cols-3 gap-2">
@@ -1586,7 +1613,6 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
         </label>
       </div>
 
-      <!-- Dynamische Dispo-Abfragen (auch bei Zumietartikeln!) -->
       <div id="add-pl-dynamic-box" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-2.5 text-xs"></div>
 
       <div>
@@ -1922,7 +1948,6 @@ async function saveAddedPackLine(e, fallbackJobId) {
     });
   }
 
-  // Zusatzartikel aus Abfragen sammeln
   const extraItems = [];
   if (item && Array.isArray(item.dependency_rules)) {
     item.dependency_rules.forEach((rule, rIdx) => {
@@ -1950,8 +1975,6 @@ async function saveAddedPackLine(e, fallbackJobId) {
     });
   });
 
-  // Wenn der Hauptartikel ein Zumietartikel ist (isSub === true), landen ALLE Zusatzartikel
-  // aus dessen Abfrage ebenfalls sauber in der Zumietartikel-Liste!
   extraItems.forEach(ex => {
     const catItem = findCatalogItemByName(ex.name);
     const treatAsSub = isSub || !!(catItem && catItem.is_subrental);
@@ -2376,9 +2399,25 @@ function exportPacklistExcel(jobId) {
 }
 
 // ============================================================================
-// ARTIKEL-EDITOR MIT ZUMIET-SCHALTER & FLEXIBLEN ABHÄNGIGKEITS-REGELN
+// ARTIKEL-EDITOR MIT BESTEHENDER KATEGORIE-AUSWAHL + NEUER KATEGORIE
 // ============================================================================
 let editingRules = [];
+
+function onItemCategorySelectChange() {
+  const sel = document.getElementById('it-cat-select');
+  const customWrap = document.getElementById('it-cat-custom-wrap');
+  const customInput = document.getElementById('it-cat-custom');
+  if (!sel || !customWrap) return;
+
+  if (sel.value === '__NEW__') {
+    customWrap.classList.remove('hidden');
+    customInput.required = true;
+    customInput.focus();
+  } else {
+    customWrap.classList.add('hidden');
+    customInput.required = false;
+  }
+}
 
 function openItemModal(itemId = null) {
   const item = itemId ? state.items.find(i => i.id === itemId) : null;
@@ -2395,6 +2434,10 @@ function openItemModal(itemId = null) {
   editingRules = JSON.parse(JSON.stringify(Array.isArray(item?.dependency_rules) ? item.dependency_rules : []));
   const defaultTenant = item ? item.tenant_id : (state.selectedTenant !== 'ALL' ? state.selectedTenant : (state.tenants[0]?.id || ''));
 
+  const categories = getAllCategories();
+  const currentCat = (item?.category || 'Allgemein').trim();
+  if (currentCat && !categories.includes(currentCat)) categories.unshift(currentCat);
+
   openModal(`
     <h3 class="text-lg font-bold mb-4">${item ? 'Artikel bearbeiten' : 'Neuen Artikel / Zumietartikel erfassen'}</h3>
     <form onsubmit="saveItem(event, '${itemId || ''}')" class="space-y-3 text-sm">
@@ -2407,14 +2450,21 @@ function openItemModal(itemId = null) {
         </div>
         <div>
           <label class="block text-xs font-semibold mb-1">Kategorie</label>
-          <input id="it-cat" required value="${esc(item?.category || 'Allgemein')}" placeholder="z. B. Video & Bühne, Audio, Strom" class="w-full px-3 py-2 border rounded-lg" />
+          <select id="it-cat-select" onchange="onItemCategorySelectChange()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold">
+            ${categories.map(c => `<option value="${escAttr(c)}" ${c === currentCat ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+            <option value="__NEW__">+ Neue Kategorie anlegen...</option>
+          </select>
+          <div id="it-cat-custom-wrap" class="hidden mt-1.5">
+            <input id="it-cat-custom" type="text" placeholder="Neue Kategorie eintippen, z. B. Displays & TV..."
+                   class="w-full px-3 py-1.5 border border-indigo-400 rounded-lg bg-indigo-50/40 text-xs font-semibold" />
+          </div>
         </div>
       </div>
 
       <div class="grid grid-cols-3 gap-3">
         <div class="col-span-2">
           <label class="block text-xs font-semibold mb-1">Artikelbezeichnung</label>
-          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. Audipack, TV 65 Zoll, Big LED UP" class="w-full px-3 py-2 border rounded-lg" />
+          <input id="it-name" required value="${esc(item?.name || '')}" placeholder="z. B. 84 Zoll Fernseher, Audipack, Big LED UP" class="w-full px-3 py-2 border rounded-lg" />
         </div>
         <div id="it-qty-wrap" class="${item?.is_subrental ? 'opacity-40 pointer-events-none' : ''}">
           <label class="block text-xs font-semibold mb-1">Gesamtbestand</label>
@@ -2573,6 +2623,12 @@ async function saveItem(e, itemId) {
   e.preventDefault();
   const is_subrental = document.getElementById('it-subrental').checked;
   const item_type = document.getElementById('it-type').value;
+
+  const catSelectVal = document.getElementById('it-cat-select').value;
+  const category = (catSelectVal === '__NEW__'
+    ? document.getElementById('it-cat-custom').value.trim()
+    : catSelectVal) || 'Allgemein';
+
   const dimension_config = item_type === 'dimension' ? {
     min_width: parseFloat(document.getElementById('dim-min').value) || 2,
     max_width: parseFloat(document.getElementById('dim-max').value) || 5,
@@ -2593,7 +2649,7 @@ async function saveItem(e, itemId) {
 
   const payload = {
     tenant_id: document.getElementById('it-tenant').value,
-    category: document.getElementById('it-cat').value.trim(),
+    category,
     name: document.getElementById('it-name').value.trim(),
     total_qty: is_subrental ? 0 : (parseInt(document.getElementById('it-qty').value, 10) || 0),
     storage_location: is_subrental ? '' : document.getElementById('it-loc').value.trim(),
@@ -2654,8 +2710,24 @@ async function deleteJob(jobId) {
 }
 
 // ============================================================================
-// TAB 3: WERKSTATT & ARCHIV RENDERN
+// TAB 3: WERKSTATT & ARCHIV (LISTE & KACHELN)
 // ============================================================================
+function setWorkshopViewMode(mode) {
+  state.workshopViewMode = mode;
+  localStorage.setItem('lw_ws_view', mode);
+  updateWorkshopViewToggleButtons();
+  renderWorkshop();
+}
+
+function updateWorkshopViewToggleButtons() {
+  const isList = state.workshopViewMode === 'list';
+  const btnList = document.getElementById('ws-view-mode-list');
+  const btnGrid = document.getElementById('ws-view-mode-grid');
+  if (!btnList || !btnGrid) return;
+  btnList.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3 py-1.5 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+}
+
 function setWorkshopFilter(f) {
   state.workshopFilter = f;
   document.querySelectorAll('.ws-filter-btn').forEach(btn => {
@@ -2666,6 +2738,7 @@ function setWorkshopFilter(f) {
 }
 
 function renderWorkshop() {
+  updateWorkshopViewToggleButtons();
   const openTickets = state.workshopTickets.filter(t => t.status !== 'archived' && (state.selectedTenant === 'ALL' || t.tenant_id === state.selectedTenant));
   document.getElementById('workshop-badge').textContent = openTickets.length;
 
@@ -2678,15 +2751,89 @@ function renderWorkshop() {
     list = list.filter(t => t.status !== 'archived' && t.location === state.workshopFilter);
   }
 
-  const container = document.getElementById('workshop-list');
+  const container = document.getElementById('workshop-container');
   if (list.length === 0) {
-    container.innerHTML = `<div class="col-span-full bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
+    container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
       Keine Einträge in dieser Werkstatt-Ansicht.
     </div>`;
     return;
   }
 
-  container.innerHTML = list.map(t => {
+  if (state.workshopViewMode === 'list') {
+    container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
+              <th class="p-3 whitespace-nowrap">Bestand</th>
+              <th class="p-3 whitespace-nowrap">Ort / Zuständig</th>
+              <th class="p-3">Artikel & Defektbeschreibung</th>
+              <th class="p-3 whitespace-nowrap">Foto</th>
+              <th class="p-3 whitespace-nowrap">Gemeldet</th>
+              <th class="p-3 text-right whitespace-nowrap">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${list.map(t => {
+              const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
+                : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
+
+              const photoCell = (t.photo_url && !t.photo_deleted)
+                ? `<a href="${t.photo_url}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline">
+                     <img src="${t.photo_url}" alt="Foto" class="w-10 h-10 object-cover rounded border border-slate-200" />
+                     <span>Bild</span>
+                   </a>`
+                : t.photo_deleted
+                ? `<span class="text-[11px] text-slate-400 italic">Gelöscht (6 Mon.)</span>`
+                : `<span class="text-xs text-slate-300">-</span>`;
+
+              return `
+                <tr class="hover:bg-slate-50">
+                  <td class="p-3 align-middle whitespace-nowrap">
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+                  </td>
+                  <td class="p-3 align-middle whitespace-nowrap">
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
+                  </td>
+                  <td class="p-3 align-middle">
+                    <div class="font-bold text-slate-900">${t.qty}× ${esc(t.item_name)}</div>
+                    <div class="text-xs text-rose-800 mt-0.5">${esc(t.description)}</div>
+                    ${t.status === 'archived' ? `
+                      <div class="text-[11px] text-emerald-700 font-semibold mt-0.5">
+                        ✅ Repariert am ${new Date(t.repaired_at).toLocaleDateString('de-DE')}${t.repair_notes ? ` – ${esc(t.repair_notes)}` : ''}
+                      </div>
+                    ` : ''}
+                  </td>
+                  <td class="p-3 align-middle whitespace-nowrap">${photoCell}</td>
+                  <td class="p-3 align-middle text-xs text-slate-500 whitespace-nowrap">
+                    <div>${new Date(t.reported_at).toLocaleDateString('de-DE')}</div>
+                    <div class="text-[11px]">von ${esc(t.reported_by || 'Team')}</div>
+                  </td>
+                  <td class="p-3 align-middle text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-1.5 text-xs">
+                      <button onclick="shareTicket('${t.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
+                        📤 Teilen
+                      </button>
+                      ${t.status !== 'archived' ? `
+                        <button onclick="openRepairModal('${t.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                          ✅ Repariert
+                        </button>
+                      ` : `
+                        <button onclick="deleteTicket('${t.id}')" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+                      `}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + list.map(t => {
     const locColor = t.location === 'Daniel Werkstatt' ? 'bg-purple-100 text-purple-800'
       : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
 
@@ -2735,7 +2882,7 @@ function renderWorkshop() {
         </div>
       </div>
     `;
-  }).join('');
+  }).join('') + `</div>`;
 }
 
 async function shareTicket(ticketId) {
@@ -2754,66 +2901,122 @@ async function shareTicket(ticketId) {
 }
 
 // ============================================================================
-// TAB 4: DGUV V3 / BENNING ST 755+ RENDERN
+// TAB 4: DGUV V3 / BENNING ST 755+ (LISTE & KACHELN)
 // ============================================================================
+function setDguvViewMode(mode) {
+  state.dguvViewMode = mode;
+  localStorage.setItem('lw_dguv_view', mode);
+  updateDguvViewToggleButtons();
+  renderDguv();
+}
+
+function updateDguvViewToggleButtons() {
+  const isList = state.dguvViewMode === 'list';
+  const btnList = document.getElementById('dguv-view-mode-list');
+  const btnGrid = document.getElementById('dguv-view-mode-grid');
+  if (!btnList || !btnGrid) return;
+  btnList.className = `px-3 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+}
+
 function renderDguv() {
-  const container = document.getElementById('dguv-list');
+  updateDguvViewToggleButtons();
+  const container = document.getElementById('dguv-container');
   const rows = state.dguvTests.map(test => {
     const item = state.items.find(i => i.id === test.item_id);
     return { ...test, item };
   }).filter(r => r.item && (state.selectedTenant === 'ALL' || r.item.tenant_id === state.selectedTenant));
 
   if (rows.length === 0) {
-    container.innerHTML = `<div class="p-8 text-center text-slate-500 text-sm">
+    container.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500 text-sm">
       Noch keine DGUV V3 Prüfprotokolle hinterlegt. Klicke auf <b>„+ Benning-Prüfung / PDF erfassen“</b>.
     </div>`;
     return;
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  container.innerHTML = `
-    <table class="w-full text-left border-collapse text-sm">
-      <thead>
-        <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
-          <th class="p-3">Bestand</th>
-          <th class="p-3">Gerät / Artikel</th>
-          <th class="p-3">Benning-Prüfnr.</th>
-          <th class="p-3">Prüfdatum</th>
-          <th class="p-3">Nächste Prüfung</th>
-          <th class="p-3">Status</th>
-          <th class="p-3">Benning-PDF</th>
-          <th class="p-3"></th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        ${rows.map(r => {
-          const expired = r.next_test_date && r.next_test_date < today;
-          const badge = r.status === 'failed'
-            ? `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-bold">Nicht bestanden</span>`
-            : expired
-            ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold">Fällig / Abgelaufen</span>`
-            : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">Bestanden</span>`;
 
-          return `
-            <tr class="hover:bg-slate-50">
-              <td class="p-3 font-bold text-indigo-700">${esc(tenantName(r.item.tenant_id))}</td>
-              <td class="p-3 font-semibold">${esc(r.item.name)}</td>
-              <td class="p-3 font-mono font-bold text-slate-800">${esc(r.benning_id)}</td>
-              <td class="p-3">${r.test_date || '-'}</td>
-              <td class="p-3">${r.next_test_date || '-'}</td>
-              <td class="p-3">${badge}</td>
-              <td class="p-3">
-                ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs">📄 PDF öffnen</a>` : '<span class="text-xs text-slate-400">Kein PDF</span>'}
-              </td>
-              <td class="p-3 text-right">
-                <button onclick="deleteDguv('${r.id}')" class="text-slate-400 hover:text-red-600 text-xs">✕</button>
-              </td>
+  if (state.dguvViewMode === 'list') {
+    container.innerHTML = `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+              <th class="p-3">Bestand</th>
+              <th class="p-3">Gerät / Artikel</th>
+              <th class="p-3">Benning-Prüfnr.</th>
+              <th class="p-3">Prüfdatum</th>
+              <th class="p-3">Nächste Prüfung</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Benning-PDF</th>
+              <th class="p-3"></th>
             </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
-  `;
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rows.map(r => {
+              const expired = r.next_test_date && r.next_test_date < today;
+              const badge = r.status === 'failed'
+                ? `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-bold">Nicht bestanden</span>`
+                : expired
+                ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold">Fällig / Abgelaufen</span>`
+                : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold">Bestanden</span>`;
+
+              return `
+                <tr class="hover:bg-slate-50">
+                  <td class="p-3 font-bold text-indigo-700">${esc(tenantName(r.item.tenant_id))}</td>
+                  <td class="p-3 font-semibold">${esc(r.item.name)}</td>
+                  <td class="p-3 font-mono font-bold text-slate-800">${esc(r.benning_id)}</td>
+                  <td class="p-3">${r.test_date || '-'}</td>
+                  <td class="p-3">${r.next_test_date || '-'}</td>
+                  <td class="p-3">${badge}</td>
+                  <td class="p-3">
+                    ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs">📄 PDF öffnen</a>` : '<span class="text-xs text-slate-400">Kein PDF</span>'}
+                  </td>
+                  <td class="p-3 text-right">
+                    <button onclick="deleteDguv('${r.id}')" class="text-slate-400 hover:text-red-600 text-xs">✕</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + rows.map(r => {
+    const expired = r.next_test_date && r.next_test_date < today;
+    const badge = r.status === 'failed'
+      ? `<span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-bold">Nicht bestanden</span>`
+      : expired
+      ? `<span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">Fällig / Abgelaufen</span>`
+      : `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">Bestanden (OK)</span>`;
+
+    return `
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(r.item.tenant_id))}</span>
+            ${badge}
+          </div>
+          <h3 class="font-bold text-base text-slate-900">${esc(r.item.name)}</h3>
+          <div class="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs space-y-1">
+            <div><span class="text-slate-500">Benning-Prüfnr.:</span> <span class="font-mono font-extrabold text-slate-900">${esc(r.benning_id)}</span></div>
+            <div><span class="text-slate-500">Prüfdatum:</span> <b>${r.test_date || '-'}</b></div>
+            <div><span class="text-slate-500">Nächste Prüfung:</span> <b>${r.next_test_date || '-'}</b></div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+          ${r.pdf_url
+            ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">📄 Benning-PDF öffnen</a>`
+            : `<span class="text-slate-400 italic">Kein PDF hinterlegt</span>`}
+          <button onclick="deleteDguv('${r.id}')" title="Prüfung löschen" class="px-2 py-1 text-slate-400 hover:text-red-600">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('') + `</div>`;
 }
 
 // ============================================================================
