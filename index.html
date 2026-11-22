@@ -3,26 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#1e293b" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Lager & Werkstatt" />
   <title>Lager & Werkstatt</title>
 
-  <!-- Dynamisches Web-App-Manifest & App-Icon für echte Android/Tablet App-Installation -->
+  <!-- Buntes XXL-Logo als SVG-Komponente & PWA-App-Icon -->
   <script>
+    const XXL_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-full h-full">
+      <rect width="512" height="512" rx="116" fill="#0f172a"/>
+      <path d="M96 144 H416 V228 H298 V384 H214 V228 H96 Z" fill="#f59e0b"/>
+      <rect x="96" y="144" width="104" height="84" rx="12" fill="#ef4444"/>
+      <rect x="204" y="144" width="104" height="84" rx="12" fill="#f59e0b"/>
+      <rect x="312" y="144" width="104" height="84" rx="12" fill="#0ea5e9"/>
+      <rect x="214" y="234" width="84" height="150" rx="12" fill="#10b981"/>
+      <circle cx="148" cy="332" r="44" fill="#ec4899"/>
+      <circle cx="364" cy="332" r="44" fill="#8b5cf6"/>
+    </svg>`;
+
     (function setupPwaManifest() {
       const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-        <defs>
-          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#4f46e5"/>
-            <stop offset="100%" stop-color="#1e1b4b"/>
-          </linearGradient>
-        </defs>
-        <rect width="512" height="512" rx="110" fill="url(#g)"/>
-        <text x="256" y="305" font-family="system-ui,-apple-system,sans-serif" font-size="210" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-6">LW</text>
-        <rect x="116" y="365" width="280" height="22" rx="11" fill="#818cf8"/>
+        <rect width="512" height="512" rx="116" fill="#0f172a"/>
+        <rect x="96" y="144" width="104" height="84" rx="14" fill="#ef4444"/>
+        <rect x="204" y="144" width="104" height="84" rx="14" fill="#f59e0b"/>
+        <rect x="312" y="144" width="104" height="84" rx="14" fill="#0ea5e9"/>
+        <rect x="214" y="234" width="84" height="150" rx="14" fill="#10b981"/>
+        <circle cx="148" cy="332" r="44" fill="#ec4899"/>
+        <circle cx="364" cy="332" r="44" fill="#8b5cf6"/>
       </svg>`;
       const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSvg);
 
@@ -39,8 +48,8 @@
         scope: location.origin + location.pathname.replace(/[^/]*$/, ""),
         display: "standalone",
         orientation: "any",
-        background_color: "#f1f5f9",
-        theme_color: "#0f172a",
+        background_color: "#f4f6f9",
+        theme_color: "#1e293b",
         icons: [
           { src: iconUrl, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
           { src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
@@ -59,7 +68,16 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    /* Verhindert ungewolltes Auto-Zoomen auf Smartphones beim Antippen von Eingabefeldern */
+    :root {
+      --xxl-dark: #1e293b;
+      --xxl-dark-deep: #0f172a;
+      --xxl-accent: #e11d48;
+      --xxl-amber: #f59e0b;
+      --xxl-sky: #0284c7;
+      --xxl-emerald: #059669;
+      --xxl-bg: #f4f6f9;
+    }
+
     @media (max-width: 768px) {
       input, select, textarea {
         font-size: 16px !important;
@@ -69,13 +87,11 @@
       }
     }
 
-    /* Größere, fingerfreundliche Checkboxen auf Touch-Geräten */
     input[type="checkbox"] {
       min-width: 1.25rem;
       min-height: 1.25rem;
     }
 
-    /* Sauberes horizontales Scrollen ohne sichtbare Balken bei Tabs */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -101,7 +117,7 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen font-sans antialiased selection:bg-indigo-200">
+<body class="bg-[#f4f6f9] text-slate-800 min-h-screen font-sans antialiased selection:bg-rose-100 selection:text-rose-900">
 
   <!-- Spezieller DIN-A4 Druckbereich für Packliste oder Zumietungs-Abholschein -->
   <div id="dedicated-print-area" class="p-4 max-w-4xl mx-auto"></div>
@@ -110,18 +126,19 @@
   <!-- 1. LOGIN SCREEN                                                       -->
   <!-- ===================================================================== -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 no-print">
-    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border border-slate-200">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 md:p-8 border-t-4 border-rose-600 border-x border-b border-slate-200">
       <div class="flex items-center justify-between gap-3 mb-6">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow">LW</div>
+          <div id="login-logo-box" class="w-12 h-12 rounded-xl overflow-hidden shadow shrink-0"></div>
           <div>
-            <h1 class="text-xl font-bold text-slate-900">Lager & Werkstatt</h1>
+            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Lager & Werkstatt</h1>
             <p class="text-xs text-slate-500">Bestand • Packlisten • DGUV V3 • Reparatur</p>
           </div>
         </div>
         <button type="button" id="pwa-install-btn-login" onclick="triggerPwaInstall()"
-                class="hidden px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold shrink-0">
-          📲 Als App
+                class="hidden px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded overflow-hidden inline-block" data-logo-mini="1"></span>
+          <span>App</span>
         </button>
       </div>
 
@@ -141,22 +158,22 @@
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Benutzername</label>
           <input id="login-user" type="text" required placeholder="z. B. daniel, patrick, markus" autocomplete="username"
-                 class="w-full px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                 class="w-full px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none" />
           <p class="text-[11px] text-slate-400 mt-1">Nur den Namen eingeben (<code>@lager.intern</code> wird automatisch ergänzt).</p>
         </div>
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Passwort</label>
           <div class="relative">
             <input id="login-pass" type="password" required placeholder="Passwort eingeben" autocomplete="current-password"
-                   class="w-full pl-3.5 pr-24 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                   class="w-full pl-3.5 pr-24 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none" />
             <button type="button" id="toggle-pass-btn" onclick="togglePasswordVisibility()"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
+                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
               👁️ Zeigen
             </button>
           </div>
         </div>
         <div id="login-error" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs"></div>
-        <button type="submit" id="login-btn" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition">
+        <button type="submit" id="login-btn" class="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow transition">
           Einloggen
         </button>
       </form>
@@ -164,7 +181,7 @@
         <button type="button" onclick="document.getElementById('config-box').classList.toggle('hidden')" class="text-xs text-slate-400 hover:text-slate-600 py-1">
           Verbindungsdaten
         </button>
-        <button type="button" onclick="openInstallHelpModal()" class="text-xs text-indigo-600 hover:underline font-semibold py-1">
+        <button type="button" onclick="openInstallHelpModal()" class="text-xs text-rose-600 hover:underline font-semibold py-1">
           📲 Handy-App Anleitung
         </button>
       </div>
@@ -175,20 +192,20 @@
   <!-- 2. HAUPTANWENDUNG                                                     -->
   <!-- ===================================================================== -->
   <div id="app-shell" class="hidden">
-    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md no-print">
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md border-b-2 border-rose-600 no-print">
       <div class="max-w-7xl mx-auto px-3 md:px-4 py-2.5 md:py-3 flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center font-bold shrink-0">LW</div>
-          <div>
-            <div class="font-bold leading-tight text-sm md:text-base">Lager & Werkstatt</div>
-            <div class="text-[11px] text-slate-400">User: <span id="current-user-label" class="text-indigo-300 font-semibold"></span></div>
+          <div id="header-logo-box" class="w-9 h-9 rounded-lg overflow-hidden shadow shrink-0"></div>
+          <div class="text-[11px] text-slate-300">
+            User: <span id="current-user-label" class="text-amber-400 font-bold"></span>
           </div>
         </div>
 
         <div class="flex items-center gap-1.5 md:gap-2 flex-wrap">
           <button type="button" id="pwa-install-btn-header" onclick="triggerPwaInstall()"
-                  class="hidden px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow">
-            📲 App installieren
+                  class="hidden px-2.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded overflow-hidden inline-block" data-logo-mini="1"></span>
+            <span>App</span>
           </button>
           <select id="global-tenant-filter" onchange="onTenantFilterChange()" aria-label="Bestandsbereich"
                   class="bg-slate-800 border border-slate-700 text-white text-xs md:text-sm rounded-lg px-2.5 py-1.5 font-medium max-w-[165px] md:max-w-none">
@@ -203,20 +220,20 @@
 
       <!-- Desktop & Tablet Top-Navigation -->
       <nav class="hidden md:flex max-w-7xl mx-auto px-4 gap-1 overflow-x-auto no-scrollbar border-t border-slate-800 text-sm">
-        <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-indigo-400 text-white whitespace-nowrap">1. Bestand & Artikel</button>
+        <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-rose-500 text-white whitespace-nowrap">1. Bestand & Artikel</button>
         <button onclick="switchTab('jobs')" id="tab-btn-jobs" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">2. Packlisten & Zumietung</button>
         <button onclick="switchTab('workshop')" id="tab-btn-workshop" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
-          3. Werkstatt <span id="workshop-badge" class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-500 text-slate-900 font-bold">0</span>
+          3. Werkstatt <span id="workshop-badge" class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-400 text-slate-950 font-extrabold">0</span>
         </button>
         <button onclick="switchTab('dguv')" id="tab-btn-dguv" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">4. DGUV V3 (Benning)</button>
         <button onclick="switchTab('stocktake')" id="tab-btn-stocktake" class="tab-btn px-4 py-2.5 font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">5. Inventur-Druck</button>
       </nav>
     </header>
 
-    <!-- Feste Smartphone Bottom-Navigation (für Daumen-Bedienung unterwegs) -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-900 text-white border-t border-slate-800 grid grid-cols-5 text-[11px] font-semibold no-print"
+    <!-- Feste Smartphone Bottom-Navigation -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-slate-900 text-white border-t-2 border-rose-600 grid grid-cols-5 text-[11px] font-semibold no-print"
          style="padding-bottom: env(safe-area-inset-bottom);">
-      <button onclick="switchTab('inventory')" id="mob-tab-inventory" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-indigo-300 bg-slate-800/80">
+      <button onclick="switchTab('inventory')" id="mob-tab-inventory" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-amber-400 bg-slate-800/90">
         <span class="text-base leading-none">📦</span>
         <span>Bestand</span>
       </button>
@@ -227,7 +244,7 @@
       <button onclick="switchTab('workshop')" id="mob-tab-workshop" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400 relative">
         <span class="text-base leading-none">🔧</span>
         <span>Werkstatt</span>
-        <span id="workshop-badge-mob" class="absolute top-1 right-2.5 px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-slate-900 font-extrabold">0</span>
+        <span id="workshop-badge-mob" class="absolute top-1 right-2.5 px-1.5 py-0.2 text-[10px] rounded-full bg-amber-400 text-slate-950 font-extrabold">0</span>
       </button>
       <button onclick="switchTab('dguv')" id="mob-tab-dguv" class="mob-tab-btn py-2 px-1 flex flex-col items-center justify-center gap-0.5 text-slate-400">
         <span class="text-base leading-none">⚡</span>
@@ -267,7 +284,7 @@
               <button id="seed-btn" onclick="seedExampleData()" class="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs md:text-sm font-semibold">
                 ✨ Beispieldaten
               </button>
-              <button onclick="openItemModal()" class="flex-1 sm:flex-none px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm text-center">
+              <button onclick="openItemModal()" class="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm text-center">
                 + Neuer Artikel / Zumietung
               </button>
             </div>
@@ -307,7 +324,7 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 2: PACKLISTEN-ÜBERSICHT (LISTE / KACHELN, INLINE ODER FENSTER)-->
+      <!-- TAB 2: PACKLISTEN-ÜBERSICHT                                      -->
       <!-- ================================================================= -->
       <section id="view-jobs" class="hidden space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200">
@@ -326,7 +343,7 @@
                 ⊞ Kacheln
               </button>
             </div>
-            <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow">
+            <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs md:text-sm font-bold shadow">
               + Neue Packliste
             </button>
           </div>
@@ -335,12 +352,12 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 3: WERKSTATT & ARCHIV (MIT LISTE / KACHELN UMSCHALTER)        -->
+      <!-- TAB 3: WERKSTATT & ARCHIV                                        -->
       <!-- ================================================================= -->
       <section id="view-workshop" class="hidden space-y-4">
         <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-            <button onclick="setWorkshopFilter('OPEN_ALL')" id="ws-filter-OPEN_ALL" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white whitespace-nowrap">Alle offenen</button>
+            <button onclick="setWorkshopFilter('OPEN_ALL')" id="ws-filter-OPEN_ALL" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white whitespace-nowrap">Alle offenen</button>
             <button onclick="setWorkshopFilter('Lager')" id="ws-filter-Lager" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Lager</button>
             <button onclick="setWorkshopFilter('Büro G7')" id="ws-filter-Büro G7" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Büro G7</button>
             <button onclick="setWorkshopFilter('Daniel Werkstatt')" id="ws-filter-Daniel Werkstatt" class="ws-filter-btn px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Daniel Werkstatt</button>
@@ -366,7 +383,7 @@
       </section>
 
       <!-- ================================================================= -->
-      <!-- TAB 4: DGUV V3 / BENNING ST 755+ (MIT LISTE / KACHELN UMSCHALTER) -->
+      <!-- TAB 4: DGUV V3 / BENNING ST 755+                                  -->
       <!-- ================================================================= -->
       <section id="view-dguv" class="hidden space-y-4">
         <div class="bg-white p-3.5 md:p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -385,7 +402,7 @@
                 ⊞ Kacheln
               </button>
             </div>
-            <button onclick="openDguvModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm">
+            <button onclick="openDguvModal()" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-sm">
               + Benning-Prüfung / PDF
             </button>
           </div>
@@ -411,19 +428,31 @@
     </main>
   </div>
 
-  <!-- SEPARATES FENSTER FÜR PACKLISTE (OPTIONAL PER BUTTON "FENSTER") -->
+  <!-- SEPARATES FENSTER FÜR PACKLISTE -->
   <div id="job-window-backdrop" class="hidden fixed inset-0 bg-slate-900/70 z-40 flex items-end md:items-center justify-center md:p-5 overflow-y-auto no-print">
     <div id="job-window-content" class="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl max-w-6xl w-full border border-slate-200 h-[94vh] md:h-auto md:max-h-[94vh] flex flex-col overflow-hidden"></div>
   </div>
 
-  <!-- ALLGEMEINES DIALOG-FENSTER (BOTTOM-SHEET AUF HANDY, ZENTRIERT AUF TABLET/PC) -->
+  <!-- ALLGEMEINES DIALOG-FENSTER -->
   <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/65 z-50 flex items-end sm:items-center justify-center sm:p-4 overflow-y-auto no-print">
     <div id="modal-content" class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 sm:my-8 border border-slate-200 max-h-[92vh] overflow-y-auto"></div>
   </div>
 
 <script>
+// Logos in Header, Login & App-Buttons einsetzen
+function hydrateLogos() {
+  const loginBox = document.getElementById('login-logo-box');
+  const headerBox = document.getElementById('header-logo-box');
+  if (loginBox) loginBox.innerHTML = XXL_LOGO_SVG;
+  if (headerBox) headerBox.innerHTML = XXL_LOGO_SVG;
+  document.querySelectorAll('[data-logo-mini="1"]').forEach(el => {
+    el.innerHTML = XXL_LOGO_SVG;
+  });
+}
+hydrateLogos();
+
 // ============================================================================
-// PWA SERVICE WORKER & APP-INSTALLATIONS-LOGIK (FÜR ANDROID / CHROME / TABLET)
+// PWA SERVICE WORKER & APP-INSTALLATIONS-LOGIK
 // ============================================================================
 let deferredInstallPrompt = null;
 
@@ -444,6 +473,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredInstallPrompt = e;
   document.getElementById('pwa-install-btn-login')?.classList.remove('hidden');
   document.getElementById('pwa-install-btn-header')?.classList.remove('hidden');
+  hydrateLogos();
 });
 
 window.addEventListener('appinstalled', () => {
@@ -464,26 +494,29 @@ async function triggerPwaInstall() {
 
 function openInstallHelpModal() {
   openModal(`
-    <h3 class="text-lg font-bold mb-2">📲 Als App auf Smartphone & Tablet installieren</h3>
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-xl overflow-hidden shrink-0">${XXL_LOGO_SVG}</div>
+      <h3 class="text-lg font-bold">Als App auf Smartphone & Tablet installieren</h3>
+    </div>
     <div class="space-y-3 text-sm text-slate-700">
-      <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-        <div class="font-bold text-indigo-950 mb-1">Android (Chrome / Samsung Internet):</div>
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="font-bold text-slate-900 mb-1">Android (Chrome / Samsung Internet):</div>
         <ol class="list-decimal list-inside space-y-1 text-xs">
-          <li>Öffne die Seite über deine HTTPS-Webadresse (nicht als lokale Datei).</li>
+          <li>Öffne die Seite über deine HTTPS-Webadresse.</li>
           <li>Tippe oben rechts im Browser auf das <b>3-Punkte-Menü (⋮)</b>.</li>
-          <li>Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“ → „Installieren“</b>.</li>
+          <li>Wähle <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b>.</li>
         </ol>
       </div>
       <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
         <div class="font-bold text-slate-900 mb-1">iPad / iPhone (Safari):</div>
         <ol class="list-decimal list-inside space-y-1 text-xs">
-          <li>Tippe unten/oben auf das <b>Teilen-Symbol (Quadrat mit Pfeil nach oben)</b>.</li>
+          <li>Tippe auf das <b>Teilen-Symbol</b>.</li>
           <li>Wähle <b>„Zum Home-Bildschirm“</b> → <b>„Hinzufügen“</b>.</li>
         </ol>
       </div>
     </div>
     <div class="flex justify-end pt-4">
-      <button onclick="closeModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Verstanden</button>
+      <button onclick="closeModal()" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold">Verstanden</button>
     </div>
   `);
 }
@@ -511,6 +544,7 @@ let state = {
   openJobId: null,
   modalJobId: null,
   expandedItemIds: [],
+  expandedPackLineIds: [],
   workshopFilter: 'OPEN_ALL',
   inventoryViewMode: localStorage.getItem('lw_inv_view') || 'list',
   jobsViewMode: localStorage.getItem('lw_jobs_view') || 'list',
@@ -594,6 +628,7 @@ async function onAuthenticated(user) {
   document.getElementById('current-user-label').textContent = shortName.charAt(0).toUpperCase() + shortName.slice(1);
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
+  hydrateLogos();
 
   updateViewToggleButtons();
   updateJobsViewToggleButtons();
@@ -698,7 +733,7 @@ function switchTab(tab) {
 
     const btn = document.getElementById(`tab-btn-${t}`);
     if (btn) {
-      btn.classList.toggle('border-indigo-400', t === tab);
+      btn.classList.toggle('border-rose-500', t === tab);
       btn.classList.toggle('text-white', t === tab);
       btn.classList.toggle('border-transparent', t !== tab);
       btn.classList.toggle('text-slate-400', t !== tab);
@@ -706,8 +741,8 @@ function switchTab(tab) {
 
     const mobBtn = document.getElementById(`mob-tab-${t}`);
     if (mobBtn) {
-      mobBtn.classList.toggle('text-indigo-300', t === tab);
-      mobBtn.classList.toggle('bg-slate-800/80', t === tab);
+      mobBtn.classList.toggle('text-amber-400', t === tab);
+      mobBtn.classList.toggle('bg-slate-800/90', t === tab);
       mobBtn.classList.toggle('text-slate-400', t !== tab);
     }
   });
@@ -754,13 +789,13 @@ function getDguvStatusBadge(itemId) {
 }
 
 // ============================================================================
-// HERVORGEHOBENE & UNTERSTRICHENE MABE (Z.B. 3 m, 4 m, 2,48 m)
+// HERVORGEHOBENE & UNTERSTRICHENE MABE
 // ============================================================================
 function formatPackLineHtml(lineName, isSub) {
   let html = esc(lineName);
   html = html.replace(
     /(\d+(?:,\d+)?\s*m)/gi,
-    `<span class="dim-highlight ${isSub ? 'bg-amber-200/80 text-amber-950' : 'bg-indigo-100/80 text-indigo-950'}">$1</span>`
+    `<span class="dim-highlight ${isSub ? 'bg-amber-200/80 text-amber-950' : 'bg-sky-100 text-sky-950'}">$1</span>`
   );
   return html;
 }
@@ -775,7 +810,7 @@ function formatPackLinePrintHtml(lineName) {
 }
 
 // ============================================================================
-// TAB 1: BESTAND & ARTIKEL (MOBILE-OPTIMIERTE LISTE + KACHELN)
+// TAB 1: BESTAND & ARTIKEL
 // ============================================================================
 function setInventoryViewMode(mode) {
   state.inventoryViewMode = mode;
@@ -789,8 +824,8 @@ function updateViewToggleButtons() {
   const btnList = document.getElementById('view-mode-list');
   const btnGrid = document.getElementById('view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function toggleItemRowExpand(itemId) {
@@ -825,7 +860,7 @@ function toggleColumnSort(field) {
 
 function sortArrow(field) {
   if (state.sortField !== field) return '<span class="text-slate-300 ml-1">↕</span>';
-  return state.sortDir === 'asc' ? '<span class="text-indigo-600 ml-1">↑</span>' : '<span class="text-indigo-600 ml-1">↓</span>';
+  return state.sortDir === 'asc' ? '<span class="text-rose-600 ml-1">↑</span>' : '<span class="text-rose-600 ml-1">↓</span>';
 }
 
 function buildItemExpandedDetails(item) {
@@ -838,7 +873,7 @@ function buildItemExpandedDetails(item) {
   }
   if (item.item_type === 'dimension' && item.dimension_config) {
     const cfg = item.dimension_config;
-    detailBlocks.push(`<div><span class="font-bold text-blue-800">Maß-System (${cfg.min_width} m – ${cfg.max_width} m):</span> ${esc(cfg.base_item || 'Grundkoffer')}, ${esc(cfg.ext_item || 'Zusatzkiste')}, ${esc(cfg.reflector_item || 'Reflektor')} & ${esc(cfg.graphic_item || 'Grafik')}</div>`);
+    detailBlocks.push(`<div><span class="font-bold text-sky-800">Maß-System (${cfg.min_width} m – ${cfg.max_width} m):</span> ${esc(cfg.base_item || 'Grundkoffer')}, ${esc(cfg.ext_item || 'Zusatzkiste')}, ${esc(cfg.reflector_item || 'Reflektor')} & ${esc(cfg.graphic_item || 'Grafik')}</div>`);
   }
   if (rules.length > 0) {
     detailBlocks.push(`<div><span class="font-bold text-amber-800">🔗 Hinterlegte Dispo-Abfragen (${rules.length}):</span>
@@ -927,7 +962,6 @@ function renderInventory() {
   }
 
   if (state.inventoryViewMode === 'list') {
-    // Smartphone-kompakte Liste (md:hidden) + Tablet/Desktop-Tabelle (hidden md:block)
     const mobileListHtml = `
       <div class="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100 overflow-hidden">
         ${filtered.map(item => {
@@ -936,16 +970,16 @@ function renderInventory() {
           const isExpanded = state.expandedItemIds.includes(item.id);
 
           return `
-            <div onclick="toggleItemRowExpand('${item.id}')" class="p-3.5 active:bg-indigo-50/40 transition">
+            <div onclick="toggleItemRowExpand('${item.id}')" class="p-3.5 active:bg-rose-50/40 transition">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1.5 flex-wrap mb-1">
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(item.tenant_id))}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(item.tenant_id))}</span>
                     <span class="text-[11px] text-slate-500">${esc(item.category)}</span>
                     ${item.is_subrental ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Zumietung</span>` : ''}
                   </div>
                   <div class="font-bold text-slate-900 text-sm leading-snug">
-                    <span class="text-indigo-600 mr-1">${isExpanded ? '▾' : '▸'}</span>${esc(item.name)}
+                    <span class="text-rose-600 mr-1">${isExpanded ? '▾' : '▸'}</span>${esc(item.name)}
                   </div>
                   <div class="flex items-center gap-2 flex-wrap mt-1 text-xs text-slate-500">
                     ${!item.is_subrental && item.storage_location ? `<span>📍 ${esc(item.storage_location)}</span>` : ''}
@@ -963,14 +997,14 @@ function renderInventory() {
               </div>
 
               ${isExpanded ? `
-                <div class="mt-2.5 p-2.5 rounded-lg bg-slate-50 border-l-4 border-indigo-500 text-xs space-y-1">
+                <div class="mt-2.5 p-2.5 rounded-lg bg-slate-50 border-l-4 border-rose-600 text-xs space-y-1">
                   ${buildItemExpandedDetails(item)}
                 </div>
               ` : ''}
 
               <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs" onclick="event.stopPropagation()">
                 <button onclick="openAddItemToPacklistFromCatalog('${item.id}')"
-                        class="px-3 py-2 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white font-bold shadow-sm">
+                        class="px-3 py-2 rounded-xl bg-rose-600 active:bg-rose-700 text-white font-bold shadow-sm">
                   + Packliste
                 </button>
                 <div class="flex items-center gap-1.5">
@@ -1010,21 +1044,21 @@ function renderInventory() {
 
               const expandedHtml = isExpanded ? `
                 <tr class="bg-slate-50/95 border-b border-slate-200">
-                  <td colspan="7" class="px-4 py-3 text-xs space-y-1.5 border-l-4 border-indigo-500">
+                  <td colspan="7" class="px-4 py-3 text-xs space-y-1.5 border-l-4 border-rose-600">
                     ${buildItemExpandedDetails(item)}
                   </td>
                 </tr>
               ` : '';
 
               return `
-                <tr onclick="toggleItemRowExpand('${item.id}')" class="hover:bg-indigo-50/35 cursor-pointer transition select-none">
+                <tr onclick="toggleItemRowExpand('${item.id}')" class="hover:bg-rose-50/30 cursor-pointer transition select-none">
                   <td class="p-3 align-middle whitespace-nowrap">
-                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(item.tenant_id))}</span>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">${esc(tenantName(item.tenant_id))}</span>
                     ${item.is_subrental ? `<span class="ml-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">Zumietung</span>` : ''}
                   </td>
                   <td class="p-3 align-middle">
                     <div class="flex items-center gap-2 flex-wrap">
-                      <span class="text-xs font-bold ${hasDetails ? 'text-indigo-600' : 'text-slate-300'}">${isExpanded ? '▾' : '▸'}</span>
+                      <span class="text-xs font-bold ${hasDetails ? 'text-rose-600' : 'text-slate-300'}">${isExpanded ? '▾' : '▸'}</span>
                       <span class="font-bold text-slate-900">${esc(item.name)}</span>
                       ${!item.is_subrental && defQty > 0 ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-bold">⚠️ ${defQty}× Werkstatt</span>` : ''}
                     </div>
@@ -1041,14 +1075,14 @@ function renderInventory() {
                     ${(!item.is_subrental && item.is_dguv) ? `
                       <div class="flex items-center gap-1.5">
                         ${getDguvStatusBadge(item.id)}
-                        <button onclick="openDguvModal('${item.id}')" title="Neue Benning-Prüfung erfassen" class="px-2 py-1 rounded bg-slate-100 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">+</button>
+                        <button onclick="openDguvModal('${item.id}')" title="Neue Benning-Prüfung erfassen" class="px-2 py-1 rounded bg-slate-100 hover:bg-rose-100 text-rose-700 text-xs font-bold">+</button>
                       </div>
                     ` : '<span class="text-xs text-slate-300">-</span>'}
                   </td>
                   <td class="p-3 align-middle text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
                       <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" title="Artikel direkt in eine Packliste buchen"
-                              class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm">
+                              class="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-sm">
                         + Packliste
                       </button>
                       ${!item.is_subrental ? `<button onclick="openDefectModal('${item.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold">Defekt</button>` : ''}
@@ -1069,7 +1103,6 @@ function renderInventory() {
     return;
   }
 
-  // Kachelansicht (1 Spalte Handy, 2 Spalten Tablet, 3 Spalten Desktop)
   container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">` + filtered.map(item => {
     const defQty = getDefectiveQtyForItem(item.id);
     const avail = Math.max(0, (item.total_qty || 0) - defQty);
@@ -1080,15 +1113,15 @@ function renderInventory() {
       : item.item_type === 'bundle'
       ? `<span class="px-2 py-0.5 rounded text-[11px] bg-purple-100 text-purple-800 font-semibold">Komponenten-Set</span>`
       : item.item_type === 'dimension'
-      ? `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System</span>`
+      ? `<span class="px-2 py-0.5 rounded text-[11px] bg-sky-100 text-sky-800 font-semibold">Maß-System</span>`
       : `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">Einzelartikel</span>`;
 
     return `
-      <div onclick="toggleItemRowExpand('${item.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-300 cursor-pointer flex flex-col justify-between transition">
+      <div onclick="toggleItemRowExpand('${item.id}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:border-rose-300 cursor-pointer flex flex-col justify-between transition">
         <div>
           <div class="flex items-start justify-between gap-2">
             <div>
-              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 mb-1">${esc(tenantName(item.tenant_id))}</span>
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white mb-1">${esc(tenantName(item.tenant_id))}</span>
               <span class="inline-block px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600 mb-1">${esc(item.category)}</span>
               ${typeBadge}
               <h3 class="font-bold text-base text-slate-900 mt-1">${isExpanded ? '▾' : '▸'} ${esc(item.name)}</h3>
@@ -1103,12 +1136,12 @@ function renderInventory() {
 
           ${!item.is_subrental && item.storage_location ? `<div class="text-xs text-slate-500 mt-1">📍 Lagerplatz: <b>${esc(item.storage_location)}</b></div>` : ''}
           ${!item.is_subrental && defQty > 0 ? `<div class="mt-2 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">⚠️ ${defQty}× in Werkstatt / Defekt</div>` : ''}
-          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2" onclick="event.stopPropagation()">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="px-2 py-1 rounded bg-indigo-50 text-xs text-indigo-700 font-semibold">+ Prüfung</button></div>` : ''}
+          ${!item.is_subrental && item.is_dguv ? `<div class="mt-2 flex items-center justify-between gap-2" onclick="event.stopPropagation()">${getDguvStatusBadge(item.id)} <button onclick="openDguvModal('${item.id}')" class="px-2 py-1 rounded bg-rose-50 text-xs text-rose-700 font-semibold">+ Prüfung</button></div>` : ''}
           ${isExpanded ? `<div class="mt-2 pt-2 border-t border-slate-100 text-xs space-y-1">${buildItemExpandedDetails(item)}</div>` : ''}
         </div>
 
         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs flex-wrap" onclick="event.stopPropagation()">
-          <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+          <button onclick="openAddItemToPacklistFromCatalog('${item.id}')" class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold">
             + Packliste
           </button>
           <div class="flex gap-1.5">
@@ -1123,7 +1156,7 @@ function renderInventory() {
 }
 
 // ============================================================================
-// TAB 2: PACKLISTEN (MOBILE TOUCH-KARTEN + TABLET/DESKTOP TABELLE)
+// TAB 2: PACKLISTEN (KOMPAKTE HANDY-ZEILEN + AUSKLAPPBARE ZUSATZINFOS)
 // ============================================================================
 function setJobsViewMode(mode) {
   state.jobsViewMode = mode;
@@ -1137,8 +1170,8 @@ function updateJobsViewToggleButtons() {
   const btnList = document.getElementById('jobs-view-mode-list');
   const btnGrid = document.getElementById('jobs-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function isLineSubrental(line) {
@@ -1147,6 +1180,34 @@ function isLineSubrental(line) {
   if ((line.category || '').toLowerCase().includes('zumiet')) return true;
   if ((line.storage_location || '').toLowerCase().includes('zumiet')) return true;
   return false;
+}
+
+function togglePackLineExpand(lineId) {
+  if (state.expandedPackLineIds.includes(lineId)) {
+    state.expandedPackLineIds = state.expandedPackLineIds.filter(id => id !== lineId);
+  } else {
+    state.expandedPackLineIds.push(lineId);
+  }
+  if (state.modalJobId) {
+    renderJobWindow();
+  } else {
+    renderJobs();
+  }
+}
+
+function toggleAllPackLinesExpand(jobId) {
+  const jobLineIds = state.packlistLines.filter(l => l.job_id === jobId).map(l => l.id);
+  const allOpen = jobLineIds.length > 0 && jobLineIds.every(id => state.expandedPackLineIds.includes(id));
+  if (allOpen) {
+    state.expandedPackLineIds = state.expandedPackLineIds.filter(id => !jobLineIds.includes(id));
+  } else {
+    state.expandedPackLineIds = [...new Set([...state.expandedPackLineIds, ...jobLineIds])];
+  }
+  if (state.modalJobId) {
+    renderJobWindow();
+  } else {
+    renderJobs();
+  }
 }
 
 function openJobInline(jobId) {
@@ -1181,84 +1242,107 @@ function buildPacklistWorkspaceHtml(job, mode) {
 
   const packedCount = allLines.filter(l => l.packed).length;
   const loadedCount = allLines.filter(l => l.loaded).length;
+  const anyExpanded = allLines.some(l => state.expandedPackLineIds.includes(l.id));
 
   const statusBadge = job.status === 'packing'
     ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">1. Packen (${packedCount}/${allLines.length} gepackt • ${loadedCount}/${allLines.length} geladen)</span>`
     : job.status === 'out'
-    ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">2. Unterwegs (${loadedCount}/${allLines.length} geladen)</span>`
+    ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-800">2. Unterwegs (${loadedCount}/${allLines.length} geladen)</span>`
     : `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">3. Zurückgenommen</span>`;
 
-  // Smartphone-freundliche Position (große Tippflächen für Gepackt & Geladen)
+  // Auf dem Handy: [Stückzahl] [Begriff] [Gepackt] [Geladen] — Zusatzinfos erst beim Antippen!
   const renderMobilePackCard = (line, isSub) => {
-    const cardBg = line.loaded ? 'bg-blue-50/60' : line.packed ? 'bg-emerald-50/60' : (isSub ? 'bg-amber-50/40' : 'bg-white');
+    const isExpanded = state.expandedPackLineIds.includes(line.id);
+    const cardBg = line.loaded ? 'bg-sky-50/70' : line.packed ? 'bg-emerald-50/70' : (isSub ? 'bg-amber-50/40' : 'bg-white');
     const showPrint = line.show_on_print !== false;
+    const hasExtraInfo = !!(line.storage_location || line.notes || line.category || line.defective_qty > 0 || !showPrint);
+
     return `
-      <div class="p-3.5 ${cardBg} space-y-2.5">
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0 flex-1">
-            <div class="font-bold text-slate-900 text-sm leading-snug">
+      <div class="${cardBg} transition">
+        <div class="px-3 py-2.5 flex items-center gap-2">
+          <!-- 1. Stückzahl -->
+          <span class="px-2 py-1 rounded-lg bg-slate-900 text-white font-extrabold text-xs shrink-0">${line.qty_required}×</span>
+
+          <!-- 2. Begriff (antippbar zum Ausklappen der Zusatzinfos) -->
+          <button type="button" onclick="togglePackLineExpand('${line.id}')"
+                  class="min-w-0 flex-1 text-left py-0.5 flex items-center gap-1.5">
+            <span class="text-xs font-bold ${hasExtraInfo ? 'text-rose-600' : 'text-slate-400'} shrink-0">${isExpanded ? '▾' : '▸'}</span>
+            <span class="font-bold text-slate-900 text-sm leading-snug truncate ${line.loaded ? 'text-sky-950' : line.packed ? 'text-emerald-950' : ''}">
               ${formatPackLineHtml(line.line_name, isSub)}
-              ${isSub ? `<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
+            </span>
+          </button>
+
+          <!-- 3. Gepackt & Geladen direkt sichtbar -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <label title="Gepackt" class="px-2.5 py-1.5 rounded-lg border cursor-pointer font-bold text-xs select-none transition ${line.packed ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-700 border-slate-300'}">
+              <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)" class="sr-only" />
+              <span>${line.packed ? '✓ Gep.' : 'Gep.'}</span>
+            </label>
+            <label title="Geladen" class="px-2.5 py-1.5 rounded-lg border cursor-pointer font-bold text-xs select-none transition ${line.loaded ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 border-slate-300'}">
+              <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)" class="sr-only" />
+              <span>${line.loaded ? '✓ Gel.' : 'Gel.'}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Ausklappbare Zusatzinformationen -->
+        ${isExpanded ? `
+          <div class="px-3 pb-3 pt-1.5 ml-2 mr-2 mb-2 rounded-xl bg-slate-50 border-l-4 border-rose-600 space-y-2 text-xs">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${isSub ? `<span class="px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
+                ${line.category ? `<span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 text-[11px]">${esc(line.category)}</span>` : ''}
+                ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-bold">${line.defective_qty}× Defekt</span>` : ''}
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-500">Menge:</span>
+                <input type="number" min="1" value="${line.qty_required}"
+                       onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
+                       class="w-16 px-2 py-1 text-center font-bold border border-slate-300 rounded-lg bg-white text-xs" />
+              </div>
             </div>
-            <div class="flex items-center gap-2 flex-wrap mt-0.5 text-[11px] text-slate-500">
-              ${line.category ? `<span>${esc(line.category)}</span>` : ''}
-              ${!showPrint ? `<span class="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-bold">Nicht im Druck</span>` : ''}
-              ${line.defective_qty > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold">${line.defective_qty}× Defekt</span>` : ''}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">${isSub ? 'Vermieter / Abholort' : 'Gang / Lagerort'}</label>
+                <input type="text" value="${esc(line.storage_location || '')}"
+                       onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
+                       placeholder="${isSub ? 'Vermieter / Abholort...' : 'Gang / Regal / Fach...'}"
+                       class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Anmerkung</label>
+                <input type="text" value="${esc(line.notes || '')}"
+                       onchange="updatePackLineField('${line.id}', 'notes', this.value)"
+                       placeholder="Anmerkung..."
+                       class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1 border-t border-slate-200/70">
+              <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer">
+                <input type="checkbox" ${showPrint ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)" class="rounded text-rose-600" />
+                <span>Im Druck</span>
+              </label>
+              <div class="flex items-center gap-1.5">
+                ${!isSub ? `
+                  <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
+                          class="px-2.5 py-1.5 rounded-lg bg-rose-50 active:bg-rose-100 text-rose-700 font-semibold">
+                    🔧 Defekt
+                  </button>
+                ` : ''}
+                <button onclick="deletePackLine('${line.id}')" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-400 active:text-red-600 font-bold">✕</button>
+              </div>
             </div>
           </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <input type="number" min="1" value="${line.qty_required}"
-                   onchange="updatePackLineField('${line.id}', 'qty_required', parseInt(this.value, 10) || 1)"
-                   class="w-16 px-2 py-1.5 text-center font-extrabold border border-slate-300 rounded-xl bg-white text-sm" />
-            <span class="text-xs font-bold text-slate-500">×</span>
-          </div>
-        </div>
-
-        <!-- Große Touch-Buttons für Gepackt & Geladen -->
-        <div class="grid grid-cols-2 gap-2">
-          <label class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border cursor-pointer font-bold text-xs select-none transition ${line.packed ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-700 border-slate-300'}">
-            <input type="checkbox" ${line.packed ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'packed', this.checked)" class="sr-only" />
-            <span>${line.packed ? '✅ Gepackt' : '☐ Gepackt'}</span>
-          </label>
-          <label class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border cursor-pointer font-bold text-xs select-none transition ${line.loaded ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-300'}">
-            <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)" class="sr-only" />
-            <span>${line.loaded ? '🚚 Geladen' : '☐ Geladen'}</span>
-          </label>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <input type="text" value="${esc(line.storage_location || '')}"
-                 onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
-                 placeholder="${isSub ? 'Vermieter / Abholort...' : 'Lagerort / Regal...'}"
-                 class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white" />
-          <input type="text" value="${esc(line.notes || '')}"
-                 onchange="updatePackLineField('${line.id}', 'notes', this.value)"
-                 placeholder="Anmerkung..."
-                 class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white" />
-        </div>
-
-        <div class="flex items-center justify-between pt-1 text-xs">
-          <label class="flex items-center gap-2 text-slate-600 font-semibold cursor-pointer">
-            <input type="checkbox" ${showPrint ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)" class="rounded text-indigo-600" />
-            <span>Im Druck</span>
-          </label>
-          <div class="flex items-center gap-2">
-            ${!isSub ? `
-              <button onclick="openDefectModal('${line.source_item_id || ''}', '${escAttr(line.line_name)}', '${job.tenant_id}', '${job.id}', '${line.id}')"
-                      class="px-3 py-1.5 rounded-xl bg-rose-50 active:bg-rose-100 text-rose-700 font-semibold">
-                🔧 Defekt
-              </button>
-            ` : ''}
-            <button onclick="deletePackLine('${line.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-500 active:text-red-600 font-bold">✕</button>
-          </div>
-        </div>
+        ` : ''}
       </div>
     `;
   };
 
   // Tablet & Desktop Tabellenzeile
   const renderDesktopPackRow = (line, isSub) => {
-    const rowBg = line.loaded ? 'bg-blue-50/40' : line.packed ? 'bg-emerald-50/40' : (isSub ? 'bg-amber-50/35' : '');
+    const rowBg = line.loaded ? 'bg-sky-50/40' : line.packed ? 'bg-emerald-50/40' : (isSub ? 'bg-amber-50/35' : '');
     const showPrint = line.show_on_print !== false;
     return `
       <tr class="${rowBg} hover:bg-slate-50">
@@ -1268,7 +1352,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
         </td>
         <td class="p-2.5 text-center">
           <input type="checkbox" ${line.loaded ? 'checked' : ''} onchange="updatePackLineField('${line.id}', 'loaded', this.checked)"
-                 title="Im Fahrzeug geladen" class="w-5 h-5 rounded border-slate-300 text-blue-600 cursor-pointer" />
+                 title="Im Fahrzeug geladen" class="w-5 h-5 rounded border-slate-300 text-sky-600 cursor-pointer" />
         </td>
         <td class="p-2.5 text-center font-extrabold text-slate-900">
           <input type="number" min="1" value="${line.qty_required}"
@@ -1276,7 +1360,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
                  class="w-16 px-2 py-1.5 text-center font-bold border border-slate-200 rounded-lg bg-white text-xs" />
         </td>
         <td class="p-2.5">
-          <div class="font-bold text-slate-900 ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : ''}">
+          <div class="font-bold text-slate-900 ${line.loaded ? 'text-sky-900' : line.packed ? 'text-emerald-900' : ''}">
             ${formatPackLineHtml(line.line_name, isSub)}
             ${isSub ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
           </div>
@@ -1289,7 +1373,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
         <td class="p-2.5">
           <input type="text" value="${esc(line.storage_location || '')}"
                  onchange="updatePackLineField('${line.id}', 'storage_location', this.value)"
-                 placeholder="${isSub ? 'Vermieter / Abholort' : 'Regal / Fach...'}"
+                 placeholder="${isSub ? 'Vermieter / Abholort' : 'Gang / Regal / Fach...'}"
                  class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white" />
         </td>
         <td class="p-2.5">
@@ -1302,7 +1386,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
           <input type="checkbox" ${showPrint ? 'checked' : ''}
                  onchange="updatePackLineField('${line.id}', 'show_on_print', this.checked)"
                  title="Auf DIN-A4 Ausdruck anzeigen"
-                 class="w-5 h-5 rounded border-slate-300 text-indigo-600 cursor-pointer" />
+                 class="w-5 h-5 rounded border-slate-300 text-rose-600 cursor-pointer" />
         </td>
         <td class="p-2.5 text-right whitespace-nowrap">
           ${!isSub ? `
@@ -1321,15 +1405,15 @@ function buildPacklistWorkspaceHtml(job, mode) {
   const isModal = mode === 'modal';
   const headerBar = isModal
     ? `
-      <div class="p-3.5 md:p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+      <div class="p-3.5 md:p-4 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2.5 shrink-0 border-b-2 border-rose-600">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500 text-white">${esc(tenantName(job.tenant_id))}</span>
+          <span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-600 text-white">${esc(tenantName(job.tenant_id))}</span>
           <h3 class="font-bold text-base md:text-lg">📁 ${esc(job.title)}</h3>
           ${job.event_date ? `<span class="text-xs text-slate-300">📅 ${job.event_date}</span>` : ''}
           ${statusBadge}
         </div>
         <div class="flex items-center gap-1.5 md:gap-2 flex-wrap w-full md:w-auto">
-          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold shadow-sm text-center">
+          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-sm text-center">
             + Artikel / Zumietung packen
           </button>
           <button onclick="printPacklist('${job.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700">
@@ -1338,9 +1422,9 @@ function buildPacklistWorkspaceHtml(job, mode) {
           <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold">
             📊 Excel
           </button>
-          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
           ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold">→ Rücknahme</button>` : ''}
-          <button onclick="closeJobWindow()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-extrabold">
+          <button onclick="closeJobWindow()" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-extrabold">
             ✕ Schließen
           </button>
         </div>
@@ -1352,13 +1436,13 @@ function buildPacklistWorkspaceHtml(job, mode) {
           <button onclick="closeJobInline()" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-800">
             ← Übersicht
           </button>
-          <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-600 text-white">${esc(tenantName(job.tenant_id))}</span>
+          <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">${esc(tenantName(job.tenant_id))}</span>
           <h3 class="font-bold text-base md:text-lg text-slate-900">📁 ${esc(job.title)}</h3>
           ${job.event_date ? `<span class="text-xs text-slate-600 font-semibold">📅 ${job.event_date}</span>` : ''}
           ${statusBadge}
         </div>
         <div class="flex items-center gap-1.5 md:gap-2 flex-wrap w-full md:w-auto">
-          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm text-center">
+          <button onclick="openAddPackLineModal('${job.id}')" class="flex-1 md:flex-none px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm text-center">
             + Artikel / Zumietung packen
           </button>
           <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="hidden md:inline-flex px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl text-xs font-bold">
@@ -1370,7 +1454,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
           <button onclick="exportPacklistExcel('${job.id}')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold">
             📊 Excel
           </button>
-          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
+          ${job.status === 'packing' ? `<button onclick="setJobStatus('${job.id}', 'out')" class="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold">→ Unterwegs</button>` : ''}
           ${job.status === 'out' ? `<button onclick="setJobStatus('${job.id}', 'returned')" class="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold">→ Rücknahme</button>` : ''}
           <button onclick="closeJobInline()" title="Packliste schließen" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold">
             ✕
@@ -1383,15 +1467,21 @@ function buildPacklistWorkspaceHtml(job, mode) {
     ${headerBar}
 
     <div class="${isModal ? 'overflow-y-auto flex-1' : ''}">
-      <div class="px-3.5 md:px-4 py-2.5 bg-amber-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2">
+      <div class="px-3.5 md:px-4 py-2 bg-amber-50/70 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center gap-2">
         <span class="text-xs font-bold text-amber-900 whitespace-nowrap">🚚 Abhol-Vermerk / Info:</span>
         <input type="text" value="${esc(job.pickup_info || '')}"
                onchange="updateJobPickupInfo('${job.id}', this.value)"
                placeholder="z. B. Abholung am Fr. 10:00 Uhr durch Markus..."
-               class="flex-1 px-3 py-2 text-xs bg-white border border-amber-200 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none" />
+               class="flex-1 px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-xl focus:ring-1 focus:ring-rose-500 outline-none" />
+        ${allLines.length > 0 ? `
+          <button type="button" onclick="toggleAllPackLinesExpand('${job.id}')"
+                  class="md:hidden self-start sm:self-auto px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-[11px] font-bold text-slate-700">
+            ${anyExpanded ? '▴ Alle Details zuklappen' : '▾ Alle Details aufklappen'}
+          </button>
+        ` : ''}
       </div>
 
-      <!-- Smartphone-Ansicht der Packliste (md:hidden) -->
+      <!-- Smartphone-Ansicht: Kompakt (Menge + Begriff + Gepackt + Geladen), Details per Tipp -->
       <div class="md:hidden divide-y divide-slate-200">
         ${allLines.length === 0 ? `
           <div class="p-6 text-center text-xs text-slate-400">
@@ -1407,7 +1497,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
         ` : ''}
       </div>
 
-      <!-- Tablet & Desktop Tabellenansicht der Packliste (hidden md:block) -->
+      <!-- Tablet & Desktop Tabellenansicht -->
       <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
           <thead>
@@ -1489,7 +1579,7 @@ function buildPacklistWorkspaceHtml(job, mode) {
                     </td>
                     <td class="p-2.5 text-center font-bold">${sr.qty}×</td>
                     <td class="p-2.5 font-bold text-slate-900">${esc(sr.item_description)}</td>
-                    <td class="p-2.5 font-semibold text-indigo-700">${esc(sr.supplier_name)}</td>
+                    <td class="p-2.5 font-semibold text-rose-700">${esc(sr.supplier_name)}</td>
                     <td class="p-2.5">${esc(sr.pickup_address || '-')}</td>
                     <td class="p-2.5 font-semibold">${esc(sr.pickup_datetime || '-')}</td>
                     <td class="p-2.5 text-slate-600">${esc(sr.notes || '-')}</td>
@@ -1558,14 +1648,14 @@ function renderJobs() {
           const statusBadge = job.status === 'packing'
             ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
             : job.status === 'out'
-            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">2. Unterwegs</span>`
             : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
 
           return `
-            <div onclick="openJobInline('${job.id}')" class="p-3.5 active:bg-indigo-50/40 transition flex items-center justify-between gap-2">
+            <div onclick="openJobInline('${job.id}')" class="p-3.5 active:bg-rose-50/40 transition flex items-center justify-between gap-2">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap mb-1">
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(job.tenant_id))}</span>
                   ${statusBadge}
                   ${job.event_date ? `<span class="text-[11px] text-slate-500">📅 ${job.event_date}</span>` : ''}
                 </div>
@@ -1573,7 +1663,7 @@ function renderJobs() {
                 <div class="text-xs text-slate-500 mt-0.5">${allLines.length} Pos. • ${packedCount} gepackt • ${loadedCount} geladen</div>
               </div>
               <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
-                <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">Öffnen</button>
+                <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold">Öffnen</button>
                 <button onclick="deleteJob('${job.id}')" class="px-2 py-2 text-slate-400 active:text-red-600 text-xs">✕</button>
               </div>
             </div>
@@ -1605,13 +1695,13 @@ function renderJobs() {
               const statusBadge = job.status === 'packing'
                 ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
                 : job.status === 'out'
-                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">2. Unterwegs</span>`
                 : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
 
               return `
-                <tr onclick="openJobInline('${job.id}')" class="hover:bg-indigo-50/40 cursor-pointer transition">
+                <tr onclick="openJobInline('${job.id}')" class="hover:bg-rose-50/35 cursor-pointer transition">
                   <td class="p-3 whitespace-nowrap">
-                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">${esc(tenantName(job.tenant_id))}</span>
                   </td>
                   <td class="p-3">
                     <div class="font-bold text-slate-900">📁 ${esc(job.title)}</div>
@@ -1625,7 +1715,7 @@ function renderJobs() {
                   </td>
                   <td class="p-3 text-right whitespace-nowrap" onclick="event.stopPropagation()">
                     <div class="inline-flex items-center gap-1.5 text-xs">
-                      <button onclick="openJobInline('${job.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                      <button onclick="openJobInline('${job.id}')" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold">
                         Öffnen
                       </button>
                       <button onclick="openJobWindow('${job.id}')" title="Als separates Fenster öffnen" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">
@@ -1652,16 +1742,16 @@ function renderJobs() {
       const statusBadge = job.status === 'packing'
         ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">1. Packen</span>`
         : job.status === 'out'
-        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">2. Unterwegs</span>`
+        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">2. Unterwegs</span>`
         : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">3. Zurück</span>`;
 
       return `
         <div onclick="openJobInline('${job.id}')"
-             class="bg-white hover:bg-indigo-50/35 rounded-xl p-4 shadow-sm border border-slate-200 hover:border-indigo-400 cursor-pointer transition flex flex-col justify-between group">
+             class="bg-white hover:bg-rose-50/35 rounded-xl p-4 shadow-sm border border-slate-200 hover:border-rose-400 cursor-pointer transition flex flex-col justify-between group">
           <div>
             <div class="flex items-center justify-between gap-2 mb-2">
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(job.tenant_id))}</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">${esc(tenantName(job.tenant_id))}</span>
                 ${statusBadge}
               </div>
               <button onclick="event.stopPropagation(); deleteJob('${job.id}')" title="Packliste löschen" class="text-slate-300 hover:text-red-600 text-xs px-1.5 py-1">✕</button>
@@ -1670,7 +1760,7 @@ function renderJobs() {
             <div class="flex items-start gap-2.5">
               <span class="text-2xl leading-none mt-0.5">📁</span>
               <div>
-                <h3 class="font-bold text-base text-slate-900 group-hover:text-indigo-700 transition">${esc(job.title)}</h3>
+                <h3 class="font-bold text-base text-slate-900 group-hover:text-rose-700 transition">${esc(job.title)}</h3>
                 ${job.event_date ? `<div class="text-xs text-slate-500 mt-0.5">📅 ${job.event_date}</div>` : ''}
                 ${job.pickup_info ? `<div class="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded px-2 py-1 mt-1.5">🚚 ${esc(job.pickup_info)}</div>` : ''}
               </div>
@@ -1683,7 +1773,7 @@ function renderJobs() {
               ${subLinesCount > 0 ? `<span class="text-amber-700">• ${subLinesCount} Zumiet.</span>` : ''}
             </div>
             <div class="flex items-center gap-1.5">
-              <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Öffnen</button>
+              <button onclick="openJobInline('${job.id}')" class="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold">Öffnen</button>
               <button onclick="openJobWindow('${job.id}')" class="hidden md:inline-flex px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold">🗔 Fenster</button>
             </div>
           </div>
@@ -1705,7 +1795,10 @@ async function updatePackLineField(lineId, field, value) {
   await sb.from('job_packlist_lines').update({ [field]: value }).eq('id', lineId);
   const line = state.packlistLines.find(l => l.id === lineId);
   if (line) line[field] = value;
-  if (field === 'packed' || field === 'loaded' || field === 'show_on_print') renderJobs();
+  if (field === 'packed' || field === 'loaded' || field === 'show_on_print') {
+    if (state.modalJobId) renderJobWindow();
+    else renderJobs();
+  }
 }
 
 async function deletePackLine(lineId) {
@@ -1748,7 +1841,7 @@ function openNewJobModal() {
 
       <div class="flex justify-end gap-2 pt-3 border-t">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">Packliste anlegen</button>
+        <button type="submit" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold">Packliste anlegen</button>
       </div>
     </form>
   `);
@@ -1883,9 +1976,9 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
 
   const jobHeaderHtml = allowJobSelect
     ? `
-      <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-        <label class="block text-xs font-bold text-indigo-950 mb-1">📁 Ziel-Packliste wählen:</label>
-        <select id="add-pl-job-select" class="w-full px-3 py-2.5 border border-indigo-300 rounded-xl bg-white font-bold text-slate-900">
+      <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+        <label class="block text-xs font-bold text-rose-950 mb-1">📁 Ziel-Packliste wählen:</label>
+        <select id="add-pl-job-select" class="w-full px-3 py-2.5 border border-rose-300 rounded-xl bg-white font-bold text-slate-900">
           ${state.jobs.map(j => `<option value="${j.id}" ${j.id === job.id ? 'selected' : ''}>[${esc(tenantName(j.tenant_id))}] ${esc(j.title)}${j.event_date ? ' (' + j.event_date + ')' : ''}</option>`).join('')}
         </select>
       </div>
@@ -1903,7 +1996,7 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
             <label class="block text-xs font-bold text-slate-800 mb-1">🔍 Suchfeld (Artikel, Zumietung, Set)</label>
             <input id="add-pl-search" type="search" oninput="filterPackSearchPicker()"
                    placeholder="Suchbegriff eingeben..."
-                   class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none" />
+                   class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-rose-500 outline-none" />
           </div>
           <div class="col-span-4 sm:col-span-3">
             <label class="block text-xs font-bold text-slate-800 mb-1">Menge</label>
@@ -1912,7 +2005,7 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
         </div>
 
         <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs pb-0.5">
-          <button type="button" id="pk-filter-ALL" onclick="setPackSearchKindFilter('ALL')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-bold bg-indigo-600 text-white whitespace-nowrap">Alle</button>
+          <button type="button" id="pk-filter-ALL" onclick="setPackSearchKindFilter('ALL')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-bold bg-slate-900 text-white whitespace-nowrap">Alle</button>
           <button type="button" id="pk-filter-OWN" onclick="setPackSearchKindFilter('OWN')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Eigene Artikel</button>
           <button type="button" id="pk-filter-SUB" onclick="setPackSearchKindFilter('SUB')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Zumietartikel</button>
           <button type="button" id="pk-filter-SETCOMP" onclick="setPackSearchKindFilter('SETCOMP')" class="pk-fbtn px-2.5 py-1.5 rounded-lg font-semibold bg-white border border-slate-300 text-slate-700 whitespace-nowrap">Sets & Komp.</button>
@@ -1922,16 +2015,16 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Gefundener Artikel:</label>
           <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2.5 border rounded-xl bg-white font-semibold"></select>
-          <div id="add-pl-hit-meta" class="text-[11px] text-indigo-700 font-medium mt-1"></div>
+          <div id="add-pl-hit-meta" class="text-[11px] text-rose-700 font-medium mt-1"></div>
         </div>
       </div>
 
-      <div id="add-pl-dimension-box" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2 text-xs">
-        <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen:</div>
+      <div id="add-pl-dimension-box" class="hidden p-3 bg-sky-50 border border-sky-200 rounded-xl space-y-2 text-xs">
+        <div class="font-bold text-sky-900">📐 Big LED UP Maß & Ausstattung wählen:</div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
-            <label class="block font-semibold text-blue-900 mb-0.5">Breite (m)</label>
-            <select id="add-pl-width" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
+            <label class="block font-semibold text-sky-900 mb-0.5">Breite (m)</label>
+            <select id="add-pl-width" class="w-full px-2.5 py-2 border border-sky-300 rounded-lg bg-white font-bold">
               <option value="2">2 m Breite</option>
               <option value="3" selected>3 m Breite</option>
               <option value="4">4 m Breite</option>
@@ -1939,23 +2032,23 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-blue-900 mb-0.5">Höhe (m)</label>
-            <select id="add-pl-height" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
+            <label class="block font-semibold text-sky-900 mb-0.5">Höhe (m)</label>
+            <select id="add-pl-height" class="w-full px-2.5 py-2 border border-sky-300 rounded-lg bg-white font-bold">
               <option value="2">2 m Höhe</option>
               <option value="2.48" selected>2,48 m Höhe</option>
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-blue-900 mb-0.5">Grafik</label>
-            <select id="add-pl-graphics" class="w-full px-2.5 py-2 border border-blue-300 rounded-lg bg-white font-bold">
+            <label class="block font-semibold text-sky-900 mb-0.5">Grafik</label>
+            <select id="add-pl-graphics" class="w-full px-2.5 py-2 border border-sky-300 rounded-lg bg-white font-bold">
               <option value="1" selected>1× Grafik (einseitig)</option>
               <option value="2">2× Grafik (beidseitig)</option>
               <option value="0">Ohne Grafik</option>
             </select>
           </div>
         </div>
-        <label class="flex items-center gap-2 cursor-pointer text-blue-950 pt-1">
-          <input id="add-pl-gfx-print" type="checkbox" checked class="rounded text-indigo-600" />
+        <label class="flex items-center gap-2 cursor-pointer text-sky-950 pt-1">
+          <input id="add-pl-gfx-print" type="checkbox" checked class="rounded text-rose-600" />
           <span>Grafiken auch auf dem Packlisten-Ausdruck anzeigen</span>
         </label>
       </div>
@@ -1989,13 +2082,13 @@ function openAddPackLineModal(jobId, presetItemId = null, allowJobSelect = false
       </div>
 
       <label class="flex items-center gap-2.5 cursor-pointer pt-1">
-        <input id="add-pl-print" type="checkbox" checked class="rounded text-indigo-600" />
+        <input id="add-pl-print" type="checkbox" checked class="rounded text-rose-600" />
         <span class="text-xs font-semibold text-slate-700">Auf DIN-A4 Ausdruck & Excel anzeigen</span>
       </label>
 
       <div class="flex justify-end gap-2 pt-3 border-t">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Schließen</button>
-        <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold">In Packliste packen</button>
+        <button type="submit" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold">In Packliste packen</button>
       </div>
     </form>
   `);
@@ -2007,7 +2100,7 @@ function setPackSearchKindFilter(kind) {
   currentPackSearchKindFilter = kind;
   document.querySelectorAll('.pk-fbtn').forEach(btn => {
     const active = btn.id === `pk-filter-${kind}`;
-    btn.className = `pk-fbtn px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-white border border-slate-300 text-slate-700'}`;
+    btn.className = `pk-fbtn px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap ${active ? 'font-bold bg-slate-900 text-white' : 'font-semibold bg-white border border-slate-300 text-slate-700'}`;
   });
   filterPackSearchPicker();
 }
@@ -2102,7 +2195,7 @@ function renderAddPackDynamicQuestions(item) {
               return `<option value="${oIdx}">${esc(opt.label)}${itemsHint ? ` (${esc(itemsHint)})` : ''}</option>`;
             }).join('')}
           </select>
-          <div id="add-dyn-subrule-${rIdx}" class="pl-3 border-l-2 border-indigo-300 space-y-1.5"></div>
+          <div id="add-dyn-subrule-${rIdx}" class="pl-3 border-l-2 border-rose-300 space-y-1.5"></div>
         </div>
       `;
     }).join('');
@@ -2138,12 +2231,12 @@ function onAddPackDynamicOptionChange(rIdx) {
   }
 
   subContainer.innerHTML = linkedItems.map(subIt => `
-    <div class="p-2 bg-indigo-50/80 border border-indigo-200 rounded-lg mt-1 space-y-1.5">
-      <div class="font-bold text-indigo-900 text-[11px]">↳ Optionen für ${esc(subIt.name)}:</div>
+    <div class="p-2 bg-slate-100 border border-slate-300 rounded-lg mt-1 space-y-1.5">
+      <div class="font-bold text-slate-900 text-[11px]">↳ Optionen für ${esc(subIt.name)}:</div>
       ${subIt.dependency_rules.map((sr, srIdx) => `
         <div>
-          <label class="block font-semibold text-indigo-950">${esc(sr.question)}</label>
-          <select class="add-dyn-nested-select w-full px-2.5 py-1.5 border border-indigo-300 rounded-lg bg-white"
+          <label class="block font-semibold text-slate-800">${esc(sr.question)}</label>
+          <select class="add-dyn-nested-select w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
                   data-linked-item="${subIt.id}" data-sub-rule="${srIdx}">
             ${(sr.options || []).map((so, soIdx) => `<option value="${soIdx}">${esc(so.label)}</option>`).join('')}
           </select>
@@ -2742,7 +2835,7 @@ function exportPacklistExcel(jobId) {
 }
 
 // ============================================================================
-// ARTIKEL-EDITOR MIT BESTEHENDER KATEGORIE-AUSWAHL + NEUER KATEGORIE
+// ARTIKEL-EDITOR
 // ============================================================================
 let editingRules = [];
 
@@ -2798,8 +2891,8 @@ function openItemModal(itemId = null) {
             <option value="__NEW__">+ Neue Kategorie anlegen...</option>
           </select>
           <div id="it-cat-custom-wrap" class="hidden mt-1.5">
-            <input id="it-cat-custom" type="text" placeholder="Neue Kategorie eintippen, z. B. Displays & TV..."
-                   class="w-full px-3 py-2 border border-indigo-400 rounded-xl bg-indigo-50/40 text-xs font-semibold" />
+            <input id="it-cat-custom" type="text" placeholder="Neue Kategorie eintippen..."
+                   class="w-full px-3 py-2 border border-rose-400 rounded-xl bg-rose-50/40 text-xs font-semibold" />
           </div>
         </div>
       </div>
@@ -2843,8 +2936,8 @@ function openItemModal(itemId = null) {
         <textarea id="it-bundle-text" rows="3" placeholder="1x Schrägsteller&#10;1x Transportcase" class="w-full px-3 py-2 border rounded-xl text-xs">${comps.map(c => `${c.qty_per_unit}x ${c.component_name}`).join('\n')}</textarea>
       </div>
 
-      <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-        <div class="text-xs font-bold text-blue-900">Big LED UP Positionen:</div>
+      <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-sky-50 border border-sky-200 rounded-xl space-y-2">
+        <div class="text-xs font-bold text-sky-900">Big LED UP Positionen:</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
           <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.01" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
           <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.01" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
@@ -2866,13 +2959,13 @@ function openItemModal(itemId = null) {
             <div class="text-xs font-bold text-slate-900">🔗 Dispo-Abfragen & Zubehör (optional)</div>
             <div class="text-[11px] text-slate-500">Fragt beim Packen nach Zubehör (z. B. Audipack, HDMI, Strom).</div>
           </div>
-          <button type="button" onclick="addDependencyRule()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shrink-0">+ Abfrage</button>
+          <button type="button" onclick="addDependencyRule()" class="px-3 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold shrink-0">+ Abfrage</button>
         </div>
         <div id="dep-rules-editor" class="space-y-2"></div>
       </div>
 
       <label id="it-dguv-wrap" class="flex items-center gap-2.5 pt-1 cursor-pointer ${item?.is_subrental ? 'hidden' : ''}">
-        <input id="it-dguv" type="checkbox" ${item?.is_dguv ? 'checked' : ''} class="rounded text-indigo-600 shrink-0" />
+        <input id="it-dguv" type="checkbox" ${item?.is_dguv ? 'checked' : ''} class="rounded text-rose-600 shrink-0" />
         <span class="text-xs font-semibold text-slate-700">Elektrisches Betriebsmittel (DGUV V3 / Benning 755+ Prüfung)</span>
       </label>
 
@@ -2883,7 +2976,7 @@ function openItemModal(itemId = null) {
 
       <div class="flex justify-end gap-2 pt-3 border-t">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold">Speichern</button>
+        <button type="submit" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Speichern</button>
       </div>
     </form>
   `);
@@ -2928,12 +3021,12 @@ function renderDependencyRulesEditor() {
   container.innerHTML = editingRules.map((rule, rIdx) => `
     <div class="p-2.5 bg-white border border-slate-300 rounded-xl space-y-2 text-xs">
       <div class="flex items-center gap-2">
-        <span class="font-bold text-indigo-700 shrink-0">Frage ${rIdx + 1}:</span>
+        <span class="font-bold text-rose-700 shrink-0">Frage ${rIdx + 1}:</span>
         <input type="text" value="${esc(rule.question)}" oninput="editingRules[${rIdx}].question = this.value"
                placeholder="z. B. Audipack dazu?" class="flex-1 px-2.5 py-1.5 border rounded-lg font-semibold" />
         <button type="button" onclick="editingRules.splice(${rIdx}, 1); renderDependencyRulesEditor();" class="text-red-500 font-bold px-2 py-1">✕</button>
       </div>
-      <div class="space-y-1.5 pl-2.5 border-l-2 border-indigo-200">
+      <div class="space-y-1.5 pl-2.5 border-l-2 border-slate-300">
         ${(rule.options || []).map((opt, oIdx) => {
           const itemsStr = (opt.items || []).filter(i => i && i.name).map(it => `${it.qty || 1}x ${it.name}`).join(', ');
           return `
@@ -2948,7 +3041,7 @@ function renderDependencyRulesEditor() {
           `;
         }).join('')}
         <button type="button" onclick="editingRules[${rIdx}].options.push({ label: '', items: [] }); renderDependencyRulesEditor();"
-                class="text-xs text-indigo-600 hover:underline font-semibold py-1">+ Antwort-Option hinzufügen</button>
+                class="text-xs text-rose-600 hover:underline font-semibold py-1">+ Antwort-Option hinzufügen</button>
       </div>
     </div>
   `).join('');
@@ -3053,7 +3146,7 @@ async function deleteJob(jobId) {
 }
 
 // ============================================================================
-// TAB 3: WERKSTATT & ARCHIV (LISTE & KACHELN)
+// TAB 3: WERKSTATT & ARCHIV
 // ============================================================================
 function setWorkshopViewMode(mode) {
   state.workshopViewMode = mode;
@@ -3067,15 +3160,15 @@ function updateWorkshopViewToggleButtons() {
   const btnList = document.getElementById('ws-view-mode-list');
   const btnGrid = document.getElementById('ws-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function setWorkshopFilter(f) {
   state.workshopFilter = f;
   document.querySelectorAll('.ws-filter-btn').forEach(btn => {
     const active = btn.id === `ws-filter-${f}`;
-    btn.className = `ws-filter-btn px-3 py-2 rounded-xl text-xs whitespace-nowrap ${active ? 'font-bold bg-indigo-600 text-white' : 'font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
+    btn.className = `ws-filter-btn px-3 py-2 rounded-xl text-xs whitespace-nowrap ${active ? 'font-bold bg-rose-600 text-white' : 'font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200'}`;
   });
   renderWorkshop();
 }
@@ -3113,7 +3206,7 @@ function renderWorkshop() {
           return `
             <div class="p-3.5 space-y-2">
               <div class="flex items-center justify-between gap-2 flex-wrap">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
                 <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${locColor}">📍 ${esc(t.location)}</span>
               </div>
               <div class="flex items-start justify-between gap-2.5">
@@ -3155,7 +3248,7 @@ function renderWorkshop() {
                 : t.location === 'Büro G7' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-800';
 
               const photoCell = (t.photo_url && !t.photo_deleted)
-                ? `<a href="${t.photo_url}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline">
+                ? `<a href="${t.photo_url}" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:underline">
                      <img src="${t.photo_url}" alt="Foto" class="w-10 h-10 object-cover rounded border border-slate-200" />
                      <span>Bild</span>
                    </a>`
@@ -3166,7 +3259,7 @@ function renderWorkshop() {
               return `
                 <tr class="hover:bg-slate-50">
                   <td class="p-3 align-middle whitespace-nowrap">
-                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
                   </td>
                   <td class="p-3 align-middle whitespace-nowrap">
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
@@ -3228,7 +3321,7 @@ function renderWorkshop() {
       <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(t.tenant_id))}</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">${esc(tenantName(t.tenant_id))}</span>
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${locColor}">📍 ${esc(t.location)}</span>
           </div>
           <h3 class="font-bold text-base text-slate-900 mt-2">${t.qty}× ${esc(t.item_name)}</h3>
@@ -3278,7 +3371,7 @@ async function shareTicket(ticketId) {
 }
 
 // ============================================================================
-// TAB 4: DGUV V3 / BENNING ST 755+ (LISTE & KACHELN)
+// TAB 4: DGUV V3 / BENNING ST 755+
 // ============================================================================
 function setDguvViewMode(mode) {
   state.dguvViewMode = mode;
@@ -3292,8 +3385,8 @@ function updateDguvViewToggleButtons() {
   const btnList = document.getElementById('dguv-view-mode-list');
   const btnGrid = document.getElementById('dguv-view-mode-grid');
   if (!btnList || !btnGrid) return;
-  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
-  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnList.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 transition ${isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
+  btnGrid.className = `px-3.5 py-2 font-bold flex items-center gap-1.5 border-l border-slate-300 transition ${!isList ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`;
 }
 
 function renderDguv() {
@@ -3326,7 +3419,7 @@ function renderDguv() {
           return `
             <div class="p-3.5 space-y-2">
               <div class="flex items-center justify-between gap-2">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(r.item.tenant_id))}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white">${esc(tenantName(r.item.tenant_id))}</span>
                 ${badge}
               </div>
               <div class="font-bold text-slate-900 text-sm">${esc(r.item.name)}</div>
@@ -3335,7 +3428,7 @@ function renderDguv() {
                 <span>Nächste: <b>${r.next_test_date || '-'}</b></span>
               </div>
               <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="px-3 py-2 rounded-xl bg-indigo-600 text-white font-bold">📄 PDF öffnen</a>` : `<span class="text-slate-400">Kein PDF</span>`}
+                ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="px-3 py-2 rounded-xl bg-rose-600 text-white font-bold">📄 PDF öffnen</a>` : `<span class="text-slate-400">Kein PDF</span>`}
                 <button onclick="deleteDguv('${r.id}')" class="px-2.5 py-2 text-slate-400">✕</button>
               </div>
             </div>
@@ -3370,14 +3463,14 @@ function renderDguv() {
 
               return `
                 <tr class="hover:bg-slate-50">
-                  <td class="p-3 font-bold text-indigo-700">${esc(tenantName(r.item.tenant_id))}</td>
+                  <td class="p-3 font-bold text-slate-900">${esc(tenantName(r.item.tenant_id))}</td>
                   <td class="p-3 font-semibold">${esc(r.item.name)}</td>
                   <td class="p-3 font-mono font-bold text-slate-800">${esc(r.benning_id)}</td>
                   <td class="p-3">${r.test_date || '-'}</td>
                   <td class="p-3">${r.next_test_date || '-'}</td>
                   <td class="p-3">${badge}</td>
                   <td class="p-3">
-                    ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs">📄 PDF öffnen</a>` : '<span class="text-xs text-slate-400">Kein PDF</span>'}
+                    ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs">📄 PDF öffnen</a>` : '<span class="text-xs text-slate-400">Kein PDF</span>'}
                   </td>
                   <td class="p-3 text-right">
                     <button onclick="deleteDguv('${r.id}')" class="text-slate-400 hover:text-red-600 text-xs">✕</button>
@@ -3406,7 +3499,7 @@ function renderDguv() {
       <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between gap-2 mb-2">
-            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700">${esc(tenantName(r.item.tenant_id))}</span>
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">${esc(tenantName(r.item.tenant_id))}</span>
             ${badge}
           </div>
           <h3 class="font-bold text-base text-slate-900">${esc(r.item.name)}</h3>
@@ -3419,7 +3512,7 @@ function renderDguv() {
 
         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
           ${r.pdf_url
-            ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">📄 Benning-PDF öffnen</a>`
+            ? `<a href="${r.pdf_url}" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold">📄 Benning-PDF öffnen</a>`
             : `<span class="text-slate-400 italic">Kein PDF hinterlegt</span>`}
           <button onclick="deleteDguv('${r.id}')" title="Prüfung löschen" class="px-2.5 py-2 text-slate-400 hover:text-red-600">✕</button>
         </div>
@@ -3429,7 +3522,7 @@ function renderDguv() {
 }
 
 // ============================================================================
-// TAB 5: INVENTUR-DRUCKLISTE (OHNE ZUMIETARTIKEL)
+// TAB 5: INVENTUR-DRUCKLISTE
 // ============================================================================
 function renderStocktake() {
   const selTenant = document.getElementById('stocktake-tenant-select').value || 'ALL';
@@ -3508,7 +3601,7 @@ function openNewTenantModal() {
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-sm text-slate-600">Abbrechen</button>
-        <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Speichern</button>
+        <button type="submit" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold">Speichern</button>
       </div>
     </form>
   `);
@@ -3731,13 +3824,13 @@ function openDguvModal(presetItemId = '') {
           <input id="dg-next" type="date" value="${nextYear}" class="w-full px-3 py-2.5 border rounded-xl" />
         </div>
       </div>
-      <div class="p-3.5 bg-indigo-50 border border-dashed border-indigo-300 rounded-xl">
-        <label class="block text-xs font-bold text-indigo-900 mb-1.5">📄 Benning 755+ Prüfprotokoll (PDF)</label>
+      <div class="p-3.5 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
+        <label class="block text-xs font-bold text-slate-900 mb-1.5">📄 Benning 755+ Prüfprotokoll (PDF)</label>
         <input id="dg-pdf" type="file" accept="application/pdf" class="text-xs w-full py-1" />
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-slate-600">Abbrechen</button>
-        <button type="submit" id="dg-submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold">Prüfung speichern</button>
+        <button type="submit" id="dg-submit" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Prüfung speichern</button>
       </div>
     </form>
   `);
