@@ -20,6 +20,13 @@
     }
     .print-only { display: none; }
     #dedicated-print-area { display: none; }
+    .dim-highlight {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      font-weight: 900;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
@@ -192,7 +199,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <div>
             <h2 class="font-bold text-lg text-slate-900">Einsätze, Packlisten, Abholung & Zumietungen</h2>
-            <p class="text-xs text-slate-500">Erst Packliste anlegen – dann Bestandsartikel, Zumietartikel & Zubehör-Abfragen (Audipack, TV, Big LED UP) hineinpacken.</p>
+            <p class="text-xs text-slate-500">Erst Packliste anlegen – dann im nächsten Schritt Artikel, Zumietartikel, Sets & Komponenten hineinsuchen und packen.</p>
           </div>
           <button onclick="openNewJobModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow">
             + Neue Packliste anlegen
@@ -488,6 +495,28 @@ function getDguvStatusBadge(itemId) {
 }
 
 // ============================================================================
+// HILFSFUNKTION FÜR HERVORGEHOBENE & UNTERSTRICHENE MABE (Z.B. 3 m, 4 m)
+// ============================================================================
+function formatPackLineHtml(lineName, isSub) {
+  let html = esc(lineName);
+  // Maße wie "3 m", "4 m", "2,48 m" hervorheben und unterstreichen
+  html = html.replace(
+    /(\d+(?:,\d+)?\s*m)/gi,
+    `<span class="dim-highlight ${isSub ? 'bg-amber-200/80 text-amber-950' : 'bg-indigo-100/80 text-indigo-950'}">$1</span>`
+  );
+  return html;
+}
+
+function formatPackLinePrintHtml(lineName) {
+  let html = esc(lineName);
+  html = html.replace(
+    /(\d+(?:,\d+)?\s*m)/gi,
+    `<span style="text-decoration:underline;font-weight:900;">$1</span>`
+  );
+  return html;
+}
+
+// ============================================================================
 // TAB 1: BESTAND & ARTIKEL
 // ============================================================================
 function setInventoryViewMode(mode) {
@@ -560,7 +589,8 @@ function renderInventory() {
     if (typeFilter === 'dguv_only' && !item.is_dguv) return false;
     if (typeFilter === 'defect_only' && getDefectiveQtyForItem(item.id) === 0) return false;
     if (search) {
-      const hay = `${item.name} ${item.category} ${item.storage_location || ''} ${item.notes || ''} ${tenantName(item.tenant_id)}`.toLowerCase();
+      const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id).map(c => c.component_name).join(' ');
+      const hay = `${item.name} ${item.category} ${item.storage_location || ''} ${item.notes || ''} ${comps} ${tenantName(item.tenant_id)}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
@@ -628,7 +658,7 @@ function renderInventory() {
                 subInfo += `<div class="text-[11px] text-purple-700 mt-0.5">Set: ${comps.map(c => `${c.qty_per_unit}× ${esc(c.component_name)}`).join(', ')}</div>`;
               } else if (item.item_type === 'dimension' && item.dimension_config) {
                 const cfg = item.dimension_config;
-                subInfo += `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System (Breite & Höhe 2,00m / 2,48m): ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik</div>`;
+                subInfo += `<div class="text-[11px] text-blue-700 mt-0.5">Maß-System: ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik</div>`;
               }
               if (rules.length > 0) {
                 subInfo += `<div class="text-[11px] text-amber-700 mt-0.5">🔗 ${rules.length} Dispo-Abfrage(n): ${rules.map(r => esc(r.question)).join(' • ')}</div>`;
@@ -702,7 +732,7 @@ function renderInventory() {
       const cfg = item.dimension_config;
       typeBadge = `<span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-semibold">Maß-System (Breite & Höhe)</span>`;
       detailsHtml = `<div class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-        <span class="font-semibold">Positionen:</span> Hauptzeile Big LED UP + eigene Zeilen für ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
+        <span class="font-semibold">Positionen:</span> ${esc(cfg.base_item)}, ${esc(cfg.ext_item)}, Reflektor & Grafik.
       </div>`;
     }
     if (rules.length > 0) {
@@ -765,7 +795,7 @@ function renderJobs() {
 
   if (filteredJobs.length === 0) {
     container.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">
-      Noch keine Packlisten vorhanden. Klicke oben auf <b>„+ Neue Packliste anlegen“</b> (z. B. für BGHW) und packe danach deine Artikel & Zumietungen hinein.
+      Noch keine Packlisten vorhanden. Klicke oben auf <b>„+ Neue Packliste anlegen“</b> (z. B. für BGHW) und packe danach im zweiten Schritt deine Artikel & Zumietungen hinein.
     </div>`;
     return;
   }
@@ -805,7 +835,7 @@ function renderJobs() {
           </td>
           <td class="p-2.5">
             <div class="font-bold text-slate-900 ${line.loaded ? 'text-blue-900' : line.packed ? 'text-emerald-900' : ''}">
-              ${esc(line.line_name)}
+              ${formatPackLineHtml(line.line_name, isSub)}
               ${isSub ? `<span class="ml-1.5 px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-extrabold">ZUMIETUNG</span>` : ''}
             </div>
             <div class="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -900,7 +930,7 @@ function renderJobs() {
               ${allLines.length === 0 ? `
                 <tr>
                   <td colspan="8" class="p-6 text-center text-xs text-slate-400">
-                    Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung in Packliste packen“</b>, um Artikel, Zumietartikel & Zubehör-Abfragen hinzuzufügen.
+                    Diese Packliste ist noch leer. Klicke oben auf <b>„+ Artikel / Zumietung in Packliste packen“</b>, um Artikel, Zumietartikel, Sets & Komponenten hineinzusuchen und hinzuzufügen.
                   </td>
                 </tr>
               ` : ''}
@@ -1004,13 +1034,13 @@ async function deletePackLine(lineId) {
 }
 
 // ============================================================================
-// PACKLISTE ZUERST ANLEGEN (NUR KOPFDATEN)
+// PACKLISTE ZUERST ANLEGEN (NUR KOPFDATEN, KEIN AUTOMATISCHES FOLGE-MODAL)
 // ============================================================================
 function openNewJobModal() {
   const bghw = state.tenants.find(t => t.name.toUpperCase() === 'BGHW') || state.tenants[0];
   openModal(`
     <h3 class="text-lg font-bold mb-3">Neue Packliste anlegen</h3>
-    <p class="text-xs text-slate-500 mb-3">Lege zuerst die Packliste an – danach kannst du direkt Artikel, Zumietartikel & Zubehör-Abfragen hineinpacken.</p>
+    <p class="text-xs text-slate-500 mb-3">Legt zuerst den Packlisten-Job an. Danach kannst du in der Packliste über <b>„+ Artikel / Zumietung in Packliste packen“</b> Artikel & Zumietungen einfügen.</p>
     <form onsubmit="saveJob(event)" class="space-y-3 text-sm">
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -1050,73 +1080,157 @@ async function saveJob(e) {
   const event_date = document.getElementById('job-date').value || null;
   const pickup_info = document.getElementById('job-pickup-info').value.trim();
 
-  const { data: job, error } = await sb.from('jobs').insert({
+  const { error } = await sb.from('jobs').insert({
     tenant_id,
     title,
     event_date,
     pickup_info,
     status: 'packing'
-  }).select().single();
+  });
   if (error) return alert(error.message);
 
   closeModal();
   await loadAllData();
-  if (job && job.id) openAddPackLineModal(job.id);
 }
 
 // ============================================================================
-// ARTIKEL & ZUMIETARTIKEL IN DIE PACKLISTE PACKEN (MIT ALLEN ABFRAGEN)
+// ARTIKEL, ZUMIETARTIKEL, SETS & KOMPONENTEN SUCHEN & PACKEN
 // ============================================================================
+function buildPackSearchCatalog(job) {
+  // Basis: Artikel des Bestandsbereichs (falls keine vorhanden, alle Artikel)
+  let baseItems = state.items.filter(i => i.tenant_id === job.tenant_id);
+  if (baseItems.length === 0) baseItems = [...state.items];
+
+  // Alle Zumietartikel aus allen Bereichen ebenfalls einbeziehen, damit sie immer findbar & wählbar sind
+  const subrentalItems = state.items.filter(i => i.is_subrental);
+  const mergedMap = new Map();
+  [...baseItems, ...subrentalItems].forEach(it => mergedMap.set(it.id, it));
+  const items = Array.from(mergedMap.values());
+
+  const entries = [];
+
+  // 1. Normale Artikel, Zumietartikel, Sets & Maß-Systeme
+  items.forEach(item => {
+    const comps = state.bundleComponents.filter(c => c.parent_item_id === item.id);
+    const rulesText = (Array.isArray(item.dependency_rules) ? item.dependency_rules : [])
+      .map(r => `${r.question} ${(r.options || []).map(o => o.label).join(' ')}`).join(' ');
+    const dimText = item.dimension_config
+      ? `${item.dimension_config.base_item || ''} ${item.dimension_config.ext_item || ''} ${item.dimension_config.reflector_item || ''} ${item.dimension_config.graphic_item || ''}`
+      : '';
+    const compText = comps.map(c => c.component_name).join(' ');
+
+    const badge = item.is_subrental
+      ? 'Zumietartikel'
+      : item.item_type === 'bundle'
+      ? 'Set'
+      : item.item_type === 'dimension'
+      ? 'Maß-System'
+      : 'Artikel';
+
+    entries.push({
+      id: `item:${item.id}`,
+      item,
+      kind: item.is_subrental ? 'subrental' : item.item_type,
+      badge,
+      title: item.name,
+      sub: `${badge} • ${item.category}${item.storage_location ? ' • ' + item.storage_location : ''}`,
+      searchText: `${item.name} ${item.category} ${item.storage_location || ''} ${badge} ${compText} ${dimText} ${rulesText}`.toLowerCase(),
+      componentName: null,
+      componentQty: 1
+    });
+
+    // 2. Einzelne Komponenten eines Sets ebenfalls durchsuchbar machen
+    comps.forEach(c => {
+      const matchingCatItem = items.find(x => x.name.toLowerCase() === c.component_name.toLowerCase());
+      entries.push({
+        id: `comp:${item.id}:${c.id}`,
+        item: matchingCatItem || null,
+        kind: 'component',
+        badge: 'Komponente',
+        title: c.component_name,
+        sub: `Komponente aus Set „${item.name}“ (${c.qty_per_unit}× pro Set)`,
+        searchText: `${c.component_name} komponente set ${item.name} ${item.category}`.toLowerCase(),
+        componentName: c.component_name,
+        componentQty: c.qty_per_unit || 1,
+        defaultCategory: item.category,
+        defaultLocation: matchingCatItem?.storage_location || item.storage_location || ''
+      });
+    });
+  });
+
+  // 3. Auch einzelne Set-Komponenten aus anderen Bereichen hinzufügen, falls noch nicht gelistet
+  state.bundleComponents.forEach(c => {
+    const exists = entries.some(e => e.title.toLowerCase() === c.component_name.toLowerCase());
+    if (!exists) {
+      entries.push({
+        id: `comp-extra:${c.id}`,
+        item: null,
+        kind: 'component',
+        badge: 'Komponente',
+        title: c.component_name,
+        sub: `Komponente (${c.qty_per_unit}×)`,
+        searchText: `${c.component_name} komponente set`.toLowerCase(),
+        componentName: c.component_name,
+        componentQty: c.qty_per_unit || 1,
+        defaultCategory: 'Komponente',
+        defaultLocation: ''
+      });
+    }
+  });
+
+  return entries.sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+let currentPackSearchEntries = [];
+
 function openAddPackLineModal(jobId) {
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
-
-  // Alle Artikel des Bereichs (inkl. Zumietartikel!) anbieten; falls leer, alle bekannten Artikel anzeigen
-  let pool = state.items.filter(i => i.tenant_id === job.tenant_id);
-  if (pool.length === 0) pool = [...state.items];
-
-  // Zumietartikel gut sichtbar kennzeichnen
-  const optionsHtml = pool.map(i => {
-    const prefix = i.is_subrental ? '[ZUMIETARTIKEL] ' : '';
-    const extra = i.is_subrental ? 'Zumietung' : `${i.category}${i.storage_location ? ' • ' + i.storage_location : ''}`;
-    return `<option value="${i.id}">${prefix}${esc(i.name)} (${esc(extra)})</option>`;
-  }).join('');
+  currentPackSearchEntries = buildPackSearchCatalog(job);
 
   openModal(`
-    <h3 class="text-lg font-bold mb-1">➕ Artikel oder Zumietartikel in Packliste packen</h3>
-    <p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> (${esc(tenantName(job.tenant_id))})</p>
+    <h3 class="text-lg font-bold mb-1">➕ Artikel, Zumietung, Set oder Komponente packen</h3>
+    <p class="text-xs text-slate-500 mb-3">Packliste: <b>${esc(job.title)}</b> • Suchfeld durchsucht immer Artikel, Zumietartikel, Sets & Komponenten.</p>
     <form onsubmit="saveAddedPackLine(event, '${jobId}')" class="space-y-3 text-sm">
-      <div class="grid grid-cols-12 gap-2">
-        <div class="col-span-9">
-          <label class="block text-xs font-semibold mb-1">Artikel aus Bestand oder Zumiet-Katalog</label>
-          <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold">
-            <option value="">-- Freitext / Manuelle Position --</option>
-            ${optionsHtml}
-          </select>
+
+      <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+        <div class="grid grid-cols-12 gap-2 items-end">
+          <div class="col-span-9">
+            <label class="block text-xs font-bold text-slate-700 mb-1">🔍 Suchen (Artikel, Zumietung, Set, Komponente)</label>
+            <input id="add-pl-search" type="text" oninput="filterPackSearchPicker()"
+                   placeholder="Tippen zum Suchen, z. B. Big, TV, Audipack, Zumiet, Reflektor..."
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none" />
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Menge</label>
+            <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center font-bold bg-white" />
+          </div>
         </div>
-        <div class="col-span-3">
-          <label class="block text-xs font-semibold mb-1">Menge</label>
-          <input id="add-pl-qty" type="number" min="1" value="1" required class="w-full px-3 py-2 border rounded-lg text-center font-bold" />
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Treffer auswählen</label>
+          <select id="add-pl-picker" onchange="onAddPackLinePick()" class="w-full px-3 py-2 border rounded-lg bg-white font-semibold"></select>
+          <div id="add-pl-hit-meta" class="text-[11px] text-indigo-700 font-medium mt-1"></div>
         </div>
       </div>
 
-      <!-- Spezielle Big LED UP Abfrage: BREITE und HÖHE getrennt -->
+      <!-- Spezielle Big LED UP Abfrage: BREITE und HÖHE getrennt (ohne Hauptzeile!) -->
       <div id="add-pl-dimension-box" class="hidden p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-2 text-xs">
-        <div class="font-bold text-blue-900">📐 Big LED UP Rahmenmaß & Ausstattung wählen:</div>
+        <div class="font-bold text-blue-900">📐 Big LED UP Maß & Ausstattung wählen (schreibt Grundkoffer, Zusatzkiste, Reflektor & Grafik):</div>
         <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block font-semibold text-blue-900 mb-0.5">Breite (m)</label>
             <select id="add-pl-width" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
-              <option value="2">2,00 m Breite</option>
-              <option value="3" selected>3,00 m Breite</option>
-              <option value="4">4,00 m Breite</option>
-              <option value="5">5,00 m Breite</option>
+              <option value="2">2 m Breite</option>
+              <option value="3" selected>3 m Breite</option>
+              <option value="4">4 m Breite</option>
+              <option value="5">5 m Breite</option>
             </select>
           </div>
           <div>
             <label class="block font-semibold text-blue-900 mb-0.5">Höhe (m)</label>
             <select id="add-pl-height" class="w-full px-2 py-1.5 border border-blue-300 rounded bg-white font-bold">
-              <option value="2">2,00 m Höhe</option>
+              <option value="2">2 m Höhe</option>
               <option value="2.48" selected>2,48 m Höhe</option>
             </select>
           </div>
@@ -1176,24 +1290,57 @@ function openAddPackLineModal(jobId) {
     </form>
   `);
 
+  filterPackSearchPicker();
+}
+
+function filterPackSearchPicker() {
+  const q = (document.getElementById('add-pl-search')?.value || '').trim().toLowerCase();
   const sel = document.getElementById('add-pl-picker');
-  if (sel.options.length > 1) {
+  if (!sel) return;
+
+  const matches = q
+    ? currentPackSearchEntries.filter(e => e.searchText.includes(q))
+    : currentPackSearchEntries;
+
+  sel.innerHTML = `<option value="">-- Freitext / Manuelle Position --</option>` +
+    matches.map(e => `<option value="${escAttr(e.id)}">[${esc(e.badge)}] ${esc(e.title)}</option>`).join('');
+
+  if (matches.length > 0) {
     sel.selectedIndex = 1;
-    onAddPackLinePick();
+  } else {
+    sel.selectedIndex = 0;
   }
+  onAddPackLinePick();
 }
 
 function onAddPackLinePick() {
-  const itemId = document.getElementById('add-pl-picker').value;
-  const item = state.items.find(i => i.id === itemId);
+  const entryId = document.getElementById('add-pl-picker').value;
+  const entry = currentPackSearchEntries.find(e => e.id === entryId);
   const dimBox = document.getElementById('add-pl-dimension-box');
   const dynBox = document.getElementById('add-pl-dynamic-box');
+  const metaEl = document.getElementById('add-pl-hit-meta');
 
-  if (!item) {
+  if (!entry) {
     dimBox.classList.add('hidden');
     dynBox.classList.add('hidden');
+    if (metaEl) metaEl.textContent = '';
     return;
   }
+
+  if (metaEl) metaEl.textContent = entry.sub;
+
+  if (entry.kind === 'component') {
+    document.getElementById('add-pl-name').value = entry.title;
+    document.getElementById('add-pl-is-sub').checked = !!(entry.item && entry.item.is_subrental);
+    document.getElementById('add-pl-cat').value = entry.defaultCategory || 'Komponente';
+    document.getElementById('add-pl-loc').value = entry.defaultLocation || '';
+    dimBox.classList.add('hidden');
+    renderAddPackDynamicQuestions(entry.item);
+    return;
+  }
+
+  const item = entry.item;
+  if (!item) return;
 
   document.getElementById('add-pl-name').value = item.name;
   document.getElementById('add-pl-is-sub').checked = !!item.is_subrental;
@@ -1230,8 +1377,11 @@ function renderAddPackDynamicQuestions(item) {
 }
 
 function onAddPackDynamicOptionChange(rIdx) {
-  const itemId = document.getElementById('add-pl-picker').value;
-  const item = state.items.find(i => i.id === itemId);
+  const entryId = document.getElementById('add-pl-picker').value;
+  const entry = currentPackSearchEntries.find(e => e.id === entryId);
+  const item = entry?.item;
+  if (!item) return;
+
   const rules = Array.isArray(item?.dependency_rules) ? item.dependency_rules : [];
   const rule = rules[rIdx];
   const subContainer = document.getElementById(`add-dyn-subrule-${rIdx}`);
@@ -1269,13 +1419,19 @@ function onAddPackDynamicOptionChange(rIdx) {
   `).join('');
 }
 
+function fmtDimNum(num) {
+  return `${String(num).replace('.', ',')} m`;
+}
+
 async function saveAddedPackLine(e, jobId) {
   e.preventDefault();
   const job = state.jobs.find(j => j.id === jobId);
   if (!job) return;
 
-  const source_item_id = document.getElementById('add-pl-picker').value || null;
-  const item = source_item_id ? state.items.find(i => i.id === source_item_id) : null;
+  const entryId = document.getElementById('add-pl-picker').value;
+  const entry = currentPackSearchEntries.find(x => x.id === entryId) || null;
+  const item = entry?.item || null;
+
   const baseName = document.getElementById('add-pl-name').value.trim();
   const qty = parseInt(document.getElementById('add-pl-qty').value, 10) || 1;
   const isSub = document.getElementById('add-pl-is-sub').checked;
@@ -1292,18 +1448,24 @@ async function saveAddedPackLine(e, jobId) {
     state.items.find(i => i.name.toLowerCase() === name.toLowerCase());
 
   if (item && item.item_type === 'dimension' && item.dimension_config) {
+    // Big LED UP: KEINE übergeordnete Hauptzeile mehr, sondern nur Grundkoffer, Zusatzkiste, Reflektor & Grafik!
     const cfg = item.dimension_config;
     const w = parseFloat(document.getElementById('add-pl-width').value) || cfg.min_width || 2;
     const h = parseFloat(document.getElementById('add-pl-height').value) || 2.48;
     const graphicSides = parseInt(document.getElementById('add-pl-graphics').value, 10) || 0;
     const gfxOnPrint = document.getElementById('add-pl-gfx-print').checked;
-    const wLabel = `${String(w).replace('.', ',')} m`;
-    const hLabel = `${String(h).replace('.', ',')} m`;
+    const wLabel = fmtDimNum(w);
+    const hLabel = fmtDimNum(h);
     const extraSteps = Math.max(0, Math.round((w - (cfg.min_width || 2)) / (cfg.step_width || 1)));
+
+    const baseKofferName = cfg.base_item || 'Grundkoffer';
+    const zusatzKisteName = cfg.ext_item || 'Zusatzkiste';
+    const reflektorName = cfg.reflector_item || 'Reflektor';
+    const grafikName = cfg.graphic_item || 'Grafik';
 
     linesToAdd.push({
       source_item_id: item.id,
-      line_name: `${baseName} (${wLabel} Breite × ${hLabel} Höhe)`,
+      line_name: baseKofferName,
       category,
       qty_required: qty,
       storage_location,
@@ -1313,24 +1475,14 @@ async function saveAddedPackLine(e, jobId) {
       sort_order: orderCounter++
     });
 
-    linesToAdd.push({
-      source_item_id: item.id,
-      line_name: cfg.base_item,
-      category,
-      qty_required: qty,
-      storage_location,
-      show_on_print,
-      is_sub_item: false,
-      sort_order: orderCounter++
-    });
-
     if (extraSteps > 0) {
       linesToAdd.push({
         source_item_id: item.id,
-        line_name: cfg.ext_item,
+        line_name: zusatzKisteName,
         category,
         qty_required: qty * extraSteps,
         storage_location,
+        notes,
         show_on_print,
         is_sub_item: false,
         sort_order: orderCounter++
@@ -1339,10 +1491,11 @@ async function saveAddedPackLine(e, jobId) {
 
     linesToAdd.push({
       source_item_id: item.id,
-      line_name: `${cfg.reflector_item || 'Reflektor'} (${wLabel})`,
+      line_name: `${reflektorName} ${wLabel}`,
       category,
       qty_required: qty,
       storage_location,
+      notes,
       show_on_print,
       is_sub_item: false,
       sort_order: orderCounter++
@@ -1352,7 +1505,7 @@ async function saveAddedPackLine(e, jobId) {
       const sideText = graphicSides === 2 ? 'beidseitig' : 'einseitig';
       linesToAdd.push({
         source_item_id: item.id,
-        line_name: `${cfg.graphic_item || 'Grafik'} (${wLabel} × ${hLabel}, ${sideText})`,
+        line_name: `${grafikName} (${wLabel} × ${hLabel}, ${sideText})`,
         category: 'Grafik',
         qty_required: qty * graphicSides,
         storage_location: '',
@@ -1388,7 +1541,7 @@ async function saveAddedPackLine(e, jobId) {
     });
   } else {
     linesToAdd.push({
-      source_item_id,
+      source_item_id: item ? item.id : null,
       line_name: baseName,
       category,
       qty_required: qty,
@@ -1682,7 +1835,7 @@ function printPacklist(jobId) {
             <td class="text-center font-bold text-base">${l.loaded ? '☑' : '☐'}</td>
             <td class="text-center font-bold">${l.qty_required}×</td>
             <td>
-              <div class="font-bold">${esc(l.line_name)}</div>
+              <div class="font-bold">${formatPackLinePrintHtml(l.line_name)}</div>
               ${l.category ? `<div class="text-[10px] text-gray-600">${esc(l.category)}</div>` : ''}
             </td>
             <td>${esc(l.storage_location || '')}</td>
@@ -1700,7 +1853,7 @@ function printPacklist(jobId) {
               <td class="text-center font-bold text-base">${l.loaded ? '☑' : '☐'}</td>
               <td class="text-center font-bold">${l.qty_required}×</td>
               <td>
-                <div class="font-bold">[ZUMIETUNG] ${esc(l.line_name)}</div>
+                <div class="font-bold">[ZUMIETUNG] ${formatPackLinePrintHtml(l.line_name)}</div>
               </td>
               <td>${esc(l.storage_location || '')}</td>
               <td>${esc(l.notes || '')}</td>
@@ -1852,7 +2005,7 @@ function openItemModal(itemId = null) {
     max_width: 5,
     step_width: 1,
     base_item: 'Grundkoffer',
-    ext_item: 'Zusatzkissen / Erweiterung',
+    ext_item: 'Zusatzkiste',
     reflector_item: 'Reflektor',
     graphic_item: 'Grafik'
   };
@@ -1890,7 +2043,7 @@ function openItemModal(itemId = null) {
         <input id="it-subrental" type="checkbox" ${item?.is_subrental ? 'checked' : ''} onchange="toggleSubrentalItemMode()" class="w-4 h-4 rounded text-amber-600" />
         <div>
           <div class="text-xs font-bold text-amber-950">Zumietartikel (taucht NICHT im eigenen Lagerbestand auf)</div>
-          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Auswahl und unten auf der Packliste als Zumietartikel.</div>
+          <div class="text-[11px] text-amber-800">Erscheint in der Packlisten-Suche & Auswahl und unten auf der Packliste als Zumietartikel.</div>
         </div>
       </label>
 
@@ -1904,7 +2057,7 @@ function openItemModal(itemId = null) {
           <select id="it-type" onchange="toggleItemTypeFields()" class="w-full px-3 py-2 border rounded-lg bg-white">
             <option value="single" ${(!item || item.item_type === 'single') ? 'selected' : ''}>Einzelartikel (Stückzahl)</option>
             <option value="bundle" ${item?.item_type === 'bundle' ? 'selected' : ''}>Komponenten-Set (feste Bestandteile)</option>
-            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: Breite & Höhe 2,00m / 2,48m)</option>
+            <option value="dimension" ${item?.item_type === 'dimension' ? 'selected' : ''}>Maß-System (Big LED UP: Breite & Höhe 2m / 2,48m)</option>
           </select>
         </div>
       </div>
@@ -1915,7 +2068,7 @@ function openItemModal(itemId = null) {
       </div>
 
       <div id="dimension-fields" class="${item?.item_type === 'dimension' ? '' : 'hidden'} p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-        <div class="text-xs font-bold text-blue-900">Big LED UP Komponenten-Bezeichnungen (werden als eigene Zeilen auf der Packliste zusammengefasst):</div>
+        <div class="text-xs font-bold text-blue-900">Big LED UP Positionen (ohne Hauptzeile – nur Grundkoffer, Zusatzkiste, Reflektor & Grafik):</div>
         <div class="grid grid-cols-3 gap-2 text-xs">
           <div><label>Grundbreite (m)</label><input id="dim-min" type="number" step="0.01" value="${cfg.min_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
           <div><label>Max-Breite (m)</label><input id="dim-max" type="number" step="0.01" value="${cfg.max_width}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
@@ -1923,7 +2076,7 @@ function openItemModal(itemId = null) {
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div><label>Grundkoffer-Name</label><input id="dim-base" value="${esc(cfg.base_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
-          <div><label>Erweiterungs-Name (ab 3m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
+          <div><label>Zusatzkiste-Name (ab 3m)</label><input id="dim-ext" value="${esc(cfg.ext_item)}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div><label>Reflektor-Bezeichnung</label><input id="dim-ref" value="${esc(cfg.reflector_item || 'Reflektor')}" class="w-full px-2 py-1.5 border rounded bg-white" /></div>
@@ -2042,7 +2195,7 @@ async function saveItem(e, itemId) {
     max_width: parseFloat(document.getElementById('dim-max').value) || 5,
     step_width: parseFloat(document.getElementById('dim-step').value) || 1,
     base_item: document.getElementById('dim-base').value.trim() || 'Grundkoffer',
-    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkissen / Erweiterung',
+    ext_item: document.getElementById('dim-ext').value.trim() || 'Zusatzkiste',
     reflector_item: document.getElementById('dim-ref').value.trim() || 'Reflektor',
     graphic_item: document.getElementById('dim-gfx').value.trim() || 'Grafik'
   } : null;
@@ -2711,7 +2864,7 @@ async function seedExampleData() {
         max_width: 5,
         step_width: 1,
         base_item: 'Grundkoffer',
-        ext_item: 'Zusatzkissen / Erweiterung',
+        ext_item: 'Zusatzkiste',
         reflector_item: 'Reflektor',
         graphic_item: 'Grafik'
       }
